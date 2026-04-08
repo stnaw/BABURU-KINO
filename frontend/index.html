@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="page-title">BABURU KINKO | 泡泡金库</title>
+    <meta
+      id="page-description"
+      name="description"
+      content="BABURU KINKO 梦幻游乐场前端概念页，面向链上借贷场景的马卡农可爱风响应式界面。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&family=Nunito:wght@500;600;700;800&family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="scene-backdrop" aria-hidden="true">
+      <div class="aurora aurora-peach"></div>
+      <div class="aurora aurora-mint"></div>
+      <div class="aurora aurora-lilac"></div>
+      <div class="bubble-field" id="bubble-field"></div>
+      <div class="grid-haze"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">BK</div>
+        <div>
+          <h1>BABURU KINKO</h1>
+        </div>
+      </div>
+
+      <nav class="nav-pills" aria-label="页面导航">
+        <button class="nav-pill active" data-target="#overview" data-i18n="navOverview">概览</button>
+        <button class="nav-pill" data-target="#borrow" data-i18n="navBorrow">借款</button>
+        <button class="nav-pill" data-target="#loans" data-i18n="navLoans">我的借款</button>
+        <button class="nav-pill" data-target="#faq" data-i18n="navHelp">帮助</button>
+      </nav>
+
+      <div class="topbar-actions">
+        <button class="primary-button" id="wallet-button" data-i18n="connectWallet">连接钱包</button>
+        <button class="ghost-button" id="lang-toggle" type="button">中</button>
+      </div>
+    </header>
+
+    <section class="top-status-banner">
+      <span class="banner-charm" aria-hidden="true">🍬</span>
+      <div class="banner-copy">
+        <strong data-i18n="loanOpen">BABURU 金库开启</strong>
+        <p id="banner-line">
+          <span data-i18n="bannerPrefix">获取</span>
+          <a id="banner-buy-link" href="#" target="_blank" rel="noreferrer noopener">$BABURU</a>
+          <span data-i18n="bannerSuffix">参加这场盛会。</span>
+        </p>
+      </div>
+      <span class="banner-sparkle" aria-hidden="true">✦</span>
+    </section>
+
+    <main>
+      <section class="hero section reveal" id="overview">
+        <div class="hero-copy">
+          <div class="hero-copy-shell">
+            <div class="hero-atmosphere" aria-hidden="true">
+              <div class="hero-stage-glow hero-stage-glow-peach"></div>
+              <div class="hero-stage-glow hero-stage-glow-mint"></div>
+              <div class="hero-stage-bubble hero-stage-bubble-large"></div>
+              <div class="hero-stage-bubble hero-stage-bubble-small"></div>
+              <div class="hero-stage-sparkle hero-stage-sparkle-a">✦</div>
+              <div class="hero-stage-sparkle hero-stage-sparkle-b">✦</div>
+            </div>
+            <p class="hero-badge" data-i18n="heroBadge">BABURU KINKO</p>
+            <h2 data-i18n="heroTitle">把链上借贷做成一座会呼吸的糖果金库。</h2>
+            <p class="hero-description" data-i18n="heroDescription">带上你的$BABURU，向 BABURU 金库借出专属于你的 BNB。</p>
+          </div>
+
+          <div class="hero-actions">
+            <a class="primary-button" href="#borrow" data-i18n="startEstimate">开始试算</a>
+            <a class="secondary-button" href="#loans" data-i18n="viewLoans">查看我的借款</a>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dashboard section reveal">
+        <div class="section-heading">
+          <div>
+            <h3 data-i18n="overviewTitle">金库概览</h3>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <article class="metric-card metric-card-large metric-card-reserve tilt-card">
+            <div class="metric-ornament metric-ornament-bubbles" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <span class="metric-kicker" data-i18n="metricToyReserve">BNB 库存</span>
+            <strong class="counter" data-value="482.36">0</strong>
+          </article>
+          <article class="metric-card metric-card-guests tilt-card">
+            <div class="metric-ornament metric-ornament-guests" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <span class="metric-kicker" data-i18n="metricExposureNote">活跃借款数</span>
+            <strong class="counter" data-value="128">0</strong>
+          </article>
+          <article class="metric-card metric-card-heat tilt-card">
+            <div class="metric-ornament metric-ornament-sprinkles" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <span class="metric-kicker" data-i18n="metricMarketNote">BABURU 价格</span>
+            <strong>$0.000021</strong>
+          </article>
+          <article class="metric-card metric-card-limit tilt-card">
+            <div class="metric-ornament metric-ornament-arc" aria-hidden="true">
+              <span></span>
+            </div>
+            <span class="metric-kicker" data-i18n="metricSlippageNote">单笔可借比例</span>
+            <strong>70%</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="timeline section reveal">
+        <div class="section-heading">
+          <div>
+            <h3 data-i18n="timelineTitle">借款窗口</h3>
+            <p class="section-note" data-i18n="timelineSubtitle">你会做出怎样的选择？</p>
+          </div>
+        </div>
+
+        <div class="timeline-ribbon timeline-ribbon-quad">
+          <article class="timeline-step">
+            <span class="timeline-badge">1-3 天</span>
+            <strong data-i18n="timelineEarly6030">提前回园清洗费</strong>
+            <p class="timeline-note" data-i18n="timelineEarlySteps">90% → 60% → 30%</p>
+          </article>
+          <article class="timeline-step timeline-step-highlight">
+            <span class="timeline-badge">3-6 天</span>
+            <strong data-i18n="timelineNormal">0% 免息窗口</strong>
+            <p class="timeline-note timeline-note-highlight" data-i18n="timelineNormalNote">最佳还款时间</p>
+          </article>
+          <article class="timeline-step timeline-step-danger">
+            <span class="timeline-badge">6-9 天</span>
+            <strong data-i18n="timelineGrace">停留期清洗费</strong>
+            <p class="timeline-note" data-i18n="timelineGraceSteps">30% → 60% → 90%</p>
+          </article>
+          <article class="timeline-step timeline-step-overdue">
+            <span class="timeline-badge">≥ 9 天</span>
+            <strong data-i18n="timelineOverdue">借款已超期</strong>
+            <p class="timeline-note" data-i18n="timelineOverdueNote">不可还款，金库自动清算。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="borrow-lab section reveal" id="borrow">
+        <div class="section-heading">
+          <div>
+            <h3 data-i18n="borrowTitle">借出 BNB</h3>
+          </div>
+        </div>
+
+        <div class="borrow-grid">
+          <article class="console-panel tilt-card">
+            <div class="borrow-machine-top">
+              <ol class="flow-steps flow-steps-panel" aria-label="借款流程">
+                <li class="flow-step active">
+                  <span class="flow-step-index">01</span>
+                  <span class="flow-step-label" data-i18n="tabEstimate">试算</span>
+                </li>
+                <li class="flow-step">
+                  <span class="flow-step-index">02</span>
+                  <span class="flow-step-label" data-i18n="tabApprove">授权</span>
+                </li>
+                <li class="flow-step">
+                  <span class="flow-step-index">03</span>
+                  <span class="flow-step-label" data-i18n="tabConfirmLoan">确认借款</span>
+                </li>
+              </ol>
+
+              <div class="borrow-footnote borrow-footnote-inline">
+                <span data-i18n="windowBody">3-6 天还款无需手续费</span>
+              </div>
+            </div>
+
+            <div class="borrow-machine-body">
+              <div class="borrow-inputs">
+                <label class="field">
+                  <span class="field-head">
+                    <span data-i18n="stakeAmount">质押数量</span>
+                    <button class="ghost-button small" id="max-stake-button" type="button">MAX</button>
+                  </span>
+                  <div class="field-shell">
+                    <input id="stake-input" type="range" min="50000" max="5000000" step="50000" value="1000000" />
+                    <div class="range-meta">
+                      <strong id="stake-display">1,000,000 BABURU</strong>
+                      <small id="wallet-available" data-i18n="walletAvailable">钱包可用: 3,640,000</small>
+                    </div>
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span data-i18n="minBorrowRatio">最小借出比例</span>
+                  <div class="field-shell">
+                    <input id="ratio-input" type="range" min="1" max="10000" step="1" value="9500" />
+                    <div class="range-meta">
+                      <strong id="ratio-display">95.00%</strong>
+                      <small id="ratio-note" data-i18n="ratioNote">低于该比例则整笔回滚</small>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="borrow-summary">
+                <div class="estimate-inline">
+                  <p class="estimate-eyebrow" data-i18n="estimatedBorrow">预估可借 BNB</p>
+                  <div class="result-number"><span id="borrow-estimate">0.338</span> <em>BNB</em></div>
+                </div>
+
+                <div class="result-breakdown">
+                  <div>
+                    <span data-i18n="refBorrowLabel">参考可借</span>
+                    <strong id="ref-borrow">0.338 BNB</strong>
+                  </div>
+                  <div>
+                    <span data-i18n="protectedFloor">最小借款下限</span>
+                    <strong id="min-borrow">0.321 BNB</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="borrow-machine-actions">
+              <div class="cta-row">
+                <button class="primary-button large" id="approve-baburu-button" type="button" data-i18n="approveBaburu">授权 BABURU</button>
+                <button class="secondary-button large" id="confirm-borrow-button" type="button" data-i18n="confirmBorrow">确认借款</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="loans section reveal" id="loans">
+        <div class="section-heading">
+          <div>
+            <h3 data-i18n="loansTitle">我的借款</h3>
+          </div>
+        </div>
+        <div class="loan-toolbar">
+          <div class="filter-row">
+            <button class="filter-chip active" data-filter="all" data-i18n="filterAll">全部</button>
+            <button class="filter-chip" data-filter="early" data-i18n="filterEarly">提前期</button>
+            <button class="filter-chip" data-filter="normal" data-i18n="filterNormal">正常期</button>
+            <button class="filter-chip" data-filter="grace" data-i18n="filterGrace">宽限期</button>
+            <button class="filter-chip" data-filter="pending" data-i18n="filterPending">已超期</button>
+          </div>
+          <button class="ghost-button small select-all-button" id="select-all-orders" type="button" data-i18n="selectAllOrders">全选借款</button>
+        </div>
+
+        <div class="loan-list" id="loan-list">
+          <article class="loan-card tilt-card" data-stage="early" data-repayable="true" data-bnb="0.214" data-baburu="120000" data-stake="1200000" data-start="2026-04-06T18:26:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" checked />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-early" data-i18n="loanEarlyTitle">提前期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyEarly60">60% 提前还款违约金</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan1StartTime">借款时间：2026-04-04 11:26</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan1Stake">质押 1,200,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan1Borrowed">借出 0.214 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card tilt-card" data-stage="normal" data-repayable="true" data-bnb="0.338" data-baburu="0" data-stake="1560000" data-start="2026-04-04T09:42:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-good" data-i18n="loanNormalTitle">正常期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyZero">0% 手续费</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan4StartTime">借款时间：2026-04-02 09:42</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan4Stake">质押 1,560,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan4Borrowed">借出 0.338 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card tilt-card" data-stage="normal" data-repayable="true" data-bnb="0.382" data-baburu="540000" data-stake="900000" data-start="2026-04-03T08:14:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-good" data-i18n="loanNormalTitle">正常期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyZero">0% 手续费</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan2StartTime">借款时间：2026-03-30 08:14</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan2Stake">质押 900,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan2Borrowed">借出 0.382 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card tilt-card" data-stage="early" data-repayable="true" data-bnb="0.168" data-baburu="86000" data-stake="640000" data-start="2026-04-05T19:10:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-early" data-i18n="loanEarlyTitle">提前期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyEarly30">30% 提前还款违约金</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan6StartTime">借款时间：2026-04-05 19:10</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan6Stake">质押 640,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan6Borrowed">借出 0.168 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card tilt-card" data-stage="normal" data-repayable="true" data-bnb="0.427" data-baburu="0" data-stake="1880000" data-start="2026-04-02T13:08:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-good" data-i18n="loanNormalTitle">正常期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyZero">0% 手续费</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan7StartTime">借款时间：2026-04-01 13:08</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan7Stake">质押 1,880,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan7Borrowed">借出 0.427 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card tilt-card" data-stage="grace" data-repayable="true" data-bnb="0.296" data-baburu="220000" data-stake="900000" data-start="2026-04-01T17:20:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-warn" data-i18n="loanGraceTitle">宽限期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyLate30">30% 延后还款滞纳金</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan5StartTime">借款时间：2026-03-29 17:20</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan2Stake">质押 900,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan5Borrowed">借出 0.296 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card tilt-card" data-stage="grace" data-repayable="true" data-bnb="0.241" data-baburu="145000" data-stake="1020000" data-start="2026-03-31T10:36:00+08:00">
+            <label class="loan-select">
+              <input class="loan-checkbox" type="checkbox" />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-warn" data-i18n="loanGraceTitle">宽限期</span>
+                <span class="loan-fee-chip" data-i18n="loanPenaltyLate90">90% 延后还款滞纳金</span>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan8StartTime">借款时间：2026-03-28 10:36</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan8Stake">质押 1,020,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan8Borrowed">借出 0.241 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card loan-card-disabled tilt-card" data-stage="pending" data-repayable="false" data-bnb="0" data-baburu="0" data-stake="780000" data-start="2026-03-29T15:22:00+08:00">
+            <label class="loan-select disabled">
+              <input class="loan-checkbox" type="checkbox" disabled />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-danger" data-i18n="loanLiquidationTitle">已超期</span>
+                <div class="title-with-help loan-fee-with-help">
+                  <button
+                    class="help-dot"
+                    type="button"
+                    aria-expanded="false"
+                    aria-label="查看为什么已经超时"
+                    data-help-toggle="overdue-toy-1"
+                    onclick="window.toggleLoanHelp?.(this)"
+                  >
+                    ?
+                  </button>
+                  <span class="loan-fee-chip" data-i18n="loanPenaltyBlocked">不可还款</span>
+                  <span class="help-popover" hidden data-help-panel="overdue-toy-1" data-i18n="overdueToyTooltip">这笔借款已经超过了还款时间，将由金库自动清算。</span>
+                </div>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan3StartTime">借款时间：2026-03-27 15:22</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan3Stake">质押 780,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan3Borrowed">借出 0.196 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="loan-card loan-card-disabled tilt-card" data-stage="pending" data-repayable="false" data-bnb="0" data-baburu="0" data-stake="520000" data-start="2026-03-28T08:58:00+08:00">
+            <label class="loan-select disabled">
+              <input class="loan-checkbox" type="checkbox" disabled />
+              <span></span>
+            </label>
+            <div class="loan-main">
+              <div class="loan-corner-badges">
+                <span class="status-pill status-danger" data-i18n="loanLiquidationTitle">已超期</span>
+                <div class="title-with-help loan-fee-with-help">
+                  <button
+                    class="help-dot"
+                    type="button"
+                    aria-expanded="false"
+                    aria-label="查看为什么已经超时"
+                    data-help-toggle="overdue-toy-2"
+                    onclick="window.toggleLoanHelp?.(this)"
+                  >
+                    ?
+                  </button>
+                  <span class="loan-fee-chip" data-i18n="loanPenaltyBlocked">不可还款</span>
+                  <span class="help-popover" hidden data-help-panel="overdue-toy-2" data-i18n="overdueToyTooltip">这笔借款已经超过了还款时间，将由金库自动清算。</span>
+                </div>
+              </div>
+              <div class="loan-body">
+                <div class="loan-meta">
+                  <span class="loan-line loan-line-stamp" data-i18n="loan9StartTime">借款时间：2026-03-26 08:58</span>
+                  <span class="loan-line loan-line-stake" data-i18n="loan9Stake">质押 520,000 BABURU</span>
+                  <span class="loan-line loan-line-borrowed" data-i18n="loan9Borrowed">借出 0.122 BNB</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <aside class="repay-bar tilt-card" id="repay-bar">
+          <div>
+            <strong id="repay-summary">已选中 1 笔借款，归还 0.214 BNB，获得 840,000 BABURU</strong>
+            <small id="repay-penalty">其中 BABURU 手续费合计 360,000。</small>
+          </div>
+          <div class="cta-row">
+            <button class="secondary-button" id="view-breakdown-button" type="button" data-i18n="viewBreakdown">查看逐笔明细</button>
+            <button class="primary-button" id="confirm-repayment-button" type="button" data-i18n="confirmRepayment">确认还款</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="faq section reveal" id="faq">
+        <div class="section-heading">
+          <div>
+            <h3 data-i18n="faqTitle">金库手册</h3>
+          </div>
+        </div>
+
+        <div class="faq-list">
+          <details open>
+            <summary data-i18n="faqBlacklistQ">金库黑名单</summary>
+            <p data-i18n="faqBlacklistA">黑名单用于统计非活跃持仓，参与可借份额分母计算，例如 LP、交易所托管地址和 0x...dead。它的作用是避免这些份额与金库内活跃质押重复扣减，不是针对普通用户的钱包封禁。</p>
+            <ul class="address-list">
+              <li data-i18n="blacklistLp">LP: 0x6fe...c200</li>
+              <li data-i18n="blacklistCustody">CEX Custody: 0x194...a999</li>
+              <li data-i18n="blacklistDead">Dead: 0x000...dEaD</li>
+            </ul>
+          </details>
+          <details>
+            <summary data-i18n="faq1Q">BABURU 和 BABURU KINKO 是什么关系？</summary>
+            <p data-i18n="faq1A">你可以向 BABURU KINO 质押 BABURU，无限次无息借出 BNB。</p>
+          </details>
+          <details>
+            <summary data-i18n="faqBaburuQ">BABURU 是什么？</summary>
+            <p data-i18n="faqBaburuA">BABURU 是 BABURU KINKO 的核心资产。持有 BABURU 后，你可以进入金库质押，并发起 BNB 借款。</p>
+          </details>
+          <details>
+            <summary data-i18n="faq2Q">为什么试算和实际借出可能不一致？</summary>
+            <p data-i18n="faq2A">前端试算只反映当前链上快照。别人借款、黑名单持仓变动、金库 BNB 增减都会改变实时分母与可借额度，所以最终成交以执行时链上值为准。</p>
+          </details>
+          <details>
+            <summary data-i18n="faqBorrowCapQ">我单次能借到多少 BNB？</summary>
+            <p data-i18n="faqBorrowCapA">单笔可借 BNB = 本次质押 BABURU / 可借份额分母 × (金库实时 BNB × ρ)。其中，可借份额分母 = 初始总量常量 − 黑名单地址持仓 − 金库内未结清质押；并且实际借出 BNB 不会超过借款执行前金库里的实时 BNB 余额。</p>
+          </details>
+          <details>
+            <summary data-i18n="faqFeeQ">借款产生的手续费是什么？这些手续费去了哪里？</summary>
+            <p data-i18n="faqFeeA">借款本身在正常时间窗口内可以 0 手续费归还；只有提前还款或宽限期还款时，才会按时间档位收取 BABURU 罚金。根据合约规则，收取到的罚金将立即链上销毁。</p>
+          </details>
+          <details>
+            <summary data-i18n="faq3Q">最小可借比例有什么作用？</summary>
+            <p data-i18n="faq3A">这是链上保护阈值。若实时可借结果低于你参考值乘以该比例，整笔交易会回滚，避免借到明显少于预期的 BNB。</p>
+          </details>
+          <details>
+            <summary data-i18n="faq4Q">为什么超过 9 天后就不能还款？</summary>
+            <p data-i18n="faq4A">根据合约规则，借款超期 9 天后会直接进入清算流程，不再支持普通还款。</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <div class="mobile-dock">
+      <a href="#overview" data-i18n="navOverview">概览</a>
+      <a href="#borrow" data-i18n="tabEstimate">试算</a>
+      <a href="#loans" data-i18n="mobileOrders">借款</a>
+      <a href="#faq" data-i18n="navHelp">帮助</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -279,6 +279,21 @@ contract BaburuKinko {
         }
     }
 
+    function treasurySnapshot() external view returns (uint256 liveBalance, uint256 borrowedOutstanding, uint256 totalManaged) {
+        liveBalance = address(this).balance;
+
+        for (uint256 i = 0; i < activeOrderIds.length; i++) {
+            uint256 orderId = activeOrderIds[i];
+            Order memory order = orders[orderId];
+            if (order.borrower == address(0)) {
+                continue;
+            }
+            borrowedOutstanding += order.borrowedBnb;
+        }
+
+        totalManaged = liveBalance + borrowedOutstanding;
+    }
+
     function getBorrowerOrderViews(address borrower) external view returns (OrderView[] memory activeOrders) {
         uint256[] memory borrowerActiveOrderIds = this.getBorrowerOrders(borrower);
         activeOrders = new OrderView[](borrowerActiveOrderIds.length);

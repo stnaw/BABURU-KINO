@@ -16,6 +16,7 @@ const LAST_RATIO_BPS_KEY = "baburu-last-ratio-bps";
 const BANNER_DISMISSED_KEY = "baburu-banner-dismissed";
 const LOCAL_BORROWER_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const VAULT_REFRESH_INTERVAL_MS = 10000;
+const MIN_FRONTEND_COLLATERAL_WEI = ethers.parseUnits("10000", 18);
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -29,6 +30,7 @@ const KINKO_ABI = [
   "function activeOrderCount() view returns (uint256)",
   "function activeCollateral() view returns (uint256)",
   "function liquidatableSummary() view returns (uint256 count,uint256 collateral)",
+  "function treasurySnapshot() view returns (uint256 liveBalance,uint256 borrowedOutstanding,uint256 totalManaged)",
   "function quoteBorrow(uint256 collateralAmount) view returns (uint256)",
   "function previewRepay(address borrower,uint256[] orderIds) view returns (uint256 totalBnbDue,uint256 totalPenalty,uint256 repayableCount,uint256 liquidatableCount)",
   "function getBorrowerOrderViews(address borrower) view returns ((uint256 orderId,address borrower,uint256 collateralAmount,uint256 borrowedBnb,uint256 borrowedAt,uint256 penaltyBpsValue,uint256 penaltyAmount,bool repayable,bool liquidatable)[])",
@@ -42,6 +44,9 @@ const translations = {
   zh: {
     pageTitle: "BABURU KINKO",
     pageDescription: "BABURU KINKO 前端界面，面向 BABURUSU 的链上借款、还款与借款管理。",
+    navAriaLabel: "页面导航",
+    bannerCloseAriaLabel: "关闭提示",
+    borrowFlowAriaLabel: "借款流程",
     navOverview: "概览",
     navBorrow: "免息借款",
     navLoans: "我的借款",
@@ -59,7 +64,9 @@ const translations = {
     bannerSuffix: "开启专属于你的金库大门。",
     pausedBanner: "BABURU 金库维护中",
     overviewTitle: "金库状态",
-    metricToyReserve: "BNB 库存",
+    metricToyReserve: "可用 BNB",
+    metricReserveLive: "实时余额",
+    metricReserveTotal: "BNB 总量",
     metricActiveCollateral: "BABURU 已质押",
     metricPendingLiquidation: "BABURU 待清算",
     metricExposureNote: "活跃借款数",
@@ -72,6 +79,7 @@ const translations = {
     tabConfirmLoan: "借款完成",
     stakeInputTitle: "带上你的 $BABURU",
     stakeAmount: "投入 $BABURU",
+    stakeMinimumHint: "前端限制：单笔至少质押 10,000 BABURU",
     walletAvailable: "钱包可用: 3,640,000",
     minBorrowRatio: "最小借出比例",
     ratioNote: "低于这个比例，本次借款不会成交",
@@ -183,6 +191,7 @@ const translations = {
     borrowStatusBorrowing: "正在提交借款，请在钱包中确认。",
     borrowStatusSuccess: "借款成功，借款列表已刷新。",
     borrowStatusFailed: "借款没有完成，请检查钱包状态后重试。",
+    borrowMinimumStake: "前端当前要求单笔质押不少于 10,000 BABURU。",
     repayReadyHint: "勾选借款后，可一键完成还款。",
     repayStatusWrongNetwork: "当前网络不正确，请切换到本地测试链后再继续。",
     repayStatusNeedSelection: "请先勾选至少一笔可还款借款。",
@@ -208,6 +217,9 @@ const translations = {
   en: {
     pageTitle: "BABURU KINKO",
     pageDescription: "BABURU KINKO interface for on-chain borrowing, repayment, and loan management for BABURUSU.",
+    navAriaLabel: "Page navigation",
+    bannerCloseAriaLabel: "Dismiss notice",
+    borrowFlowAriaLabel: "Borrow flow",
     navOverview: "Overview",
     navBorrow: "Interest-Free Borrow",
     navLoans: "My Loans",
@@ -225,7 +237,9 @@ const translations = {
     bannerSuffix: "to unlock your vault access.",
     pausedBanner: "BABURU KINKO is under maintenance",
     overviewTitle: "Vault Status",
-    metricToyReserve: "BNB Reserve",
+    metricToyReserve: "Available BNB",
+    metricReserveLive: "Live Balance",
+    metricReserveTotal: "Total BNB",
     metricActiveCollateral: "BABURU Staked",
     metricPendingLiquidation: "BABURU Pending Liquidation",
     metricExposureNote: "Active Loans",
@@ -238,6 +252,7 @@ const translations = {
     tabConfirmLoan: "Complete Borrow",
     stakeInputTitle: "Bring Your $BABURU",
     stakeAmount: "Deposit $BABURU",
+    stakeMinimumHint: "Frontend limit: at least 10,000 BABURU per borrow",
     walletAvailable: "Wallet available: 3,640,000",
     minBorrowRatio: "Minimum Loan Ratio",
     ratioNote: "If it drops below this ratio, the borrow will not execute",
@@ -349,6 +364,7 @@ const translations = {
     borrowStatusBorrowing: "Submitting the borrow. Please confirm in your wallet.",
     borrowStatusSuccess: "Borrow successful. Your loan list has been refreshed.",
     borrowStatusFailed: "The borrow did not complete. Check your wallet and try again.",
+    borrowMinimumStake: "The frontend currently requires at least 10,000 BABURU per borrow.",
     repayReadyHint: "Select loans to repay them in one flow.",
     repayStatusWrongNetwork: "You're on the wrong network. Switch to the local test chain to continue.",
     repayStatusNeedSelection: "Select at least one repayable loan first.",
@@ -461,6 +477,7 @@ const bubbleField = document.getElementById("bubble-field");
 const pageDescription = document.getElementById("page-description");
 const flowSteps = [...document.querySelectorAll(".flow-steps-panel .flow-step")];
 const reserveMetric = document.getElementById("reserve-metric");
+const reserveTotalMetric = document.getElementById("reserve-total-metric");
 const activeCollateralMetric = document.getElementById("active-collateral-metric");
 const liquidatableCollateralMetric = document.getElementById("liquidatable-collateral-metric");
 const activeLoansMetric = document.getElementById("active-loans-metric");
@@ -896,6 +913,9 @@ function applyTranslations() {
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
   document.title = t("pageTitle");
   if (pageDescription) pageDescription.setAttribute("content", t("pageDescription"));
+  document.querySelector(".nav-pills")?.setAttribute("aria-label", t("navAriaLabel"));
+  document.getElementById("banner-close-button")?.setAttribute("aria-label", t("bannerCloseAriaLabel"));
+  document.querySelector(".flow-steps-panel")?.setAttribute("aria-label", t("borrowFlowAriaLabel"));
 
   i18nNodes.forEach((node) => {
     if (node === walletButton && connectedAddress) return;
@@ -976,7 +996,7 @@ async function updateBorrowEstimate() {
     refBorrow.textContent = "-- BNB";
     minBorrow.textContent = "-- BNB";
     const walletAvailable = document.getElementById("wallet-available");
-    if (walletAvailable) walletAvailable.textContent = t("connectWallet");
+    if (walletAvailable) walletAvailable.textContent = "";
     await syncBorrowActionLabel();
     return;
   }
@@ -1027,8 +1047,11 @@ async function syncBorrowActionLabel() {
 
   let nextKey = "approveAndBorrow";
   let nextStep = 0;
+  const collateralAmount = getCollateralAmountWei();
 
   if (!connectedAddress) {
+    borrowActionButton.disabled = true;
+  } else if (collateralAmount < MIN_FRONTEND_COLLATERAL_WEI) {
     borrowActionButton.disabled = true;
   } else {
     borrowActionButton.disabled = false;
@@ -1036,7 +1059,6 @@ async function syncBorrowActionLabel() {
       const contracts = getReadContracts();
       if (contracts) {
         const allowance = await contracts.baburu.allowance(connectedAddress, APP_CONFIG.kinkoAddress);
-        const collateralAmount = getCollateralAmountWei();
         if (allowance >= collateralAmount) {
           nextKey = "confirmBorrow";
           nextStep = 1;
@@ -1211,8 +1233,8 @@ function renderBorrowRefreshMeta() {
   borrowRefreshMeta.style.setProperty("--borrow-refresh-progress", `${progress}`);
   borrowRefreshCopy.innerHTML =
     currentLang === "zh"
-      ? `<span class="borrow-refresh-number">${secondsLeft}</span><span class="borrow-refresh-unit">s</span><span>后刷新可借额度</span>`
-      : `<span>Refreshing borrowable amount in</span><span class="borrow-refresh-number">${secondsLeft}</span><span class="borrow-refresh-unit">s</span>`;
+      ? `<span class="borrow-refresh-number">${secondsLeft}</span><span class="borrow-refresh-unit">s</span><span>后刷新预估额度</span>`
+      : `<span>Refreshing estimate in</span><span class="borrow-refresh-number">${secondsLeft}</span><span class="borrow-refresh-unit">s</span>`;
   borrowRefreshMeta.hidden = false;
 }
 
@@ -1308,16 +1330,19 @@ async function loadVaultMetrics() {
     const contracts = getReadContracts();
     if (!contracts) return;
 
-    const [vaultBalance, activeLoans, rhoBps, activeCollateral, liquidatableSummary] = await Promise.all([
-      getRpcProvider().getBalance(APP_CONFIG.kinkoAddress),
+    const [treasurySnapshot, activeLoans, rhoBps, activeCollateral, liquidatableSummary] = await Promise.all([
+      contracts.kinko.treasurySnapshot(),
       contracts.kinko.activeOrderCount(),
       contracts.kinko.rhoBps(),
       contracts.kinko.activeCollateral(),
       contracts.kinko.liquidatableSummary(),
     ]);
+    const liveBalance = Array.isArray(treasurySnapshot) ? treasurySnapshot[0] : treasurySnapshot.liveBalance;
+    const totalManaged = Array.isArray(treasurySnapshot) ? treasurySnapshot[2] : treasurySnapshot.totalManaged;
     const liquidatableCollateral = Array.isArray(liquidatableSummary) ? liquidatableSummary[1] : liquidatableSummary.collateral;
 
-    if (reserveMetric) animateMetricNumber(reserveMetric, Number(ethers.formatEther(vaultBalance)), { maximumFractionDigits: 2 });
+    if (reserveMetric) animateMetricNumber(reserveMetric, Number(ethers.formatEther(liveBalance)), { maximumFractionDigits: 2 });
+    if (reserveTotalMetric) animateMetricNumber(reserveTotalMetric, Number(ethers.formatEther(totalManaged)), { maximumFractionDigits: 2 });
     if (activeCollateralMetric) animateMetricNumber(activeCollateralMetric, Number(ethers.formatUnits(activeCollateral, 18)), { maximumFractionDigits: 0 });
     if (liquidatableCollateralMetric) animateMetricNumber(liquidatableCollateralMetric, Number(ethers.formatUnits(liquidatableCollateral, 18)), { maximumFractionDigits: 0 });
     if (activeLoansMetric) animateMetricNumber(activeLoansMetric, Number(activeLoans), { maximumFractionDigits: 0 });
@@ -1337,7 +1362,7 @@ async function loadWalletBalances() {
       walletAvailable.textContent = `${t("walletAvailable").split(":")[0]}: ${formatWalletTokenAmount(latestWalletBaburuBalance)}`;
     }
     if (stakeInput) {
-      stakeInput.min = "0";
+      stakeInput.min = "10000";
       stakeInput.step = "0.0001";
       stakeInput.max = ethers.formatUnits(latestWalletBaburuBalance, 18);
       if (getCollateralAmountWei() > latestWalletBaburuBalance && latestWalletBaburuBalance > 0n) {
@@ -1849,6 +1874,11 @@ function setupBorrowActions() {
         currentLang === "zh" ? "请先输入有效的质押数量。" : "Enter a valid collateral amount first.",
         "warn"
       );
+      return;
+    }
+
+    if (collateralAmount < MIN_FRONTEND_COLLATERAL_WEI) {
+      setActionStatus(borrowStatus, "borrowMinimumStake", "warn");
       return;
     }
 

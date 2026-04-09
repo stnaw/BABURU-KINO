@@ -10,7 +10,9 @@
     "compile": "hardhat compile",
     "test:contracts": "hardhat test",
     "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy-local.js --network localhost"
+    "deploy:local": "hardhat run scripts/deploy-local.js --network localhost",
+    "local:up": "bash scripts/local-up.sh",
+    "local:down": "bash scripts/local-down.sh"
   },
   "keywords": [],
   "author": "",

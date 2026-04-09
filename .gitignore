@@ -30,3 +30,4 @@ build/
 .cache/
 artifacts/
 cache/
+.local/

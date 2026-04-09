@@ -1,0 +1,460 @@
+version: "1.0"
+name: "BABURU-KINKO-QA-Sample"
+source_of_truth:
+  - "docs/design/税率分配.md"
+  - "docs/design/QA.md"
+  - "docs/design/前端展示.md"
+rules:
+  conflict_resolution: "When documents conflict, use docs/design/税率分配.md"
+  penalty_formula: "penalty = pledged_baburu_of_order * tier_ratio"
+  penalty_source: "Deduct from pledged BABURU of the same order"
+  money_precision: "Use wei for all assertions, no floating-point comparisons"
+  time_reference: "Use on-chain block.timestamp only"
+execution:
+  order:
+    - "A"
+    - "B"
+    - "C"
+    - "D"
+    - "E"
+    - "F"
+    - "G"
+    - "H"
+  retry_policy:
+    network_error_max_retries: 2
+    assertion_failure_retries: 0
+  required_evidence:
+    - "result"
+    - "reason"
+    - "tx_hashes"
+    - "screenshots"
+    - "logs"
+  artifacts_root: "artifacts/qa-logs/<runId>/"
+  summary_file: "summary.json"
+test_cases:
+  - id: "TC-ENV-001"
+    group: "A"
+    priority: "P0"
+    title: "Read config snapshot before start"
+    preconditions:
+      - "Contracts deployed"
+      - "Vault not started"
+    steps:
+      - "Read vault config: token/tax token/dead address/rho/blacklist"
+    expected:
+      - "All config values equal deployment parameters"
+    outputs:
+      - "config_snapshot.json"
+
+  - id: "TC-ENV-002"
+    group: "A"
+    priority: "P0"
+    title: "Borrow should fail before start"
+    preconditions:
+      - "Vault not started"
+    steps:
+      - "Submit borrow transaction"
+    expected:
+      - "Transaction reverts due to not-started guard"
+    outputs:
+      - "revert_reason"
+      - "tx_hash"
+
+  - id: "TC-ENV-003"
+    group: "A"
+    priority: "P0"
+    title: "Start then borrow should work"
+    preconditions:
+      - "Governance account available"
+    steps:
+      - "Call start"
+      - "Submit borrow transaction"
+    expected:
+      - "Start succeeds"
+      - "Borrow path becomes available"
+    outputs:
+      - "start_tx"
+      - "borrow_tx"
+
+  - id: "TC-TAX-001"
+    group: "B"
+    priority: "P0"
+    title: "Single-round mixed trading tax inflow"
+    preconditions:
+      - "Pair tradable"
+      - "Fixed random seed"
+    steps:
+      - "Run >=200 mixed buy/sell trades"
+    expected:
+      - "Vault BNB delta > 0"
+      - "Actual inflow direction matches expected tax direction"
+    outputs:
+      - "window_stats_json"
+
+  - id: "TC-TAX-002"
+    group: "B"
+    priority: "P1"
+    title: "Three rounds with amount buckets"
+    preconditions:
+      - "Same as TC-TAX-001"
+    steps:
+      - "Run 3 rounds with varied amount buckets"
+    expected:
+      - "Each round writes logs"
+      - "|deltaPct| <= 5% unless warning is emitted"
+    outputs:
+      - "qa-key-log-*.jsonl"
+
+  - id: "TC-TAX-003"
+    group: "B"
+    priority: "P1"
+    title: "Monotonic vault BNB before borrow"
+    preconditions:
+      - "No borrow tx in this window"
+    steps:
+      - "Sample vault balance every 100 trades"
+    expected:
+      - "Vault BNB sequence is monotonic non-decreasing"
+    outputs:
+      - "balance_series"
+      - "monotonic_assertion"
+
+  - id: "TC-BORROW-001"
+    group: "C"
+    priority: "P0"
+    title: "Normal borrow success path"
+    preconditions:
+      - "Sufficient BABURU balance"
+      - "Sufficient allowance"
+    steps:
+      - "Input pledge amount"
+      - "Read refBorrow"
+      - "Submit borrow"
+    expected:
+      - "Order created"
+      - "T0 stored"
+      - "Vault BNB decreases by borrowed amount"
+    outputs:
+      - "order_id"
+      - "borrow_tx"
+
+  - id: "TC-BORROW-002"
+    group: "C"
+    priority: "P0"
+    title: "Borrow fails with zero allowance"
+    preconditions:
+      - "allowance = 0"
+    steps:
+      - "Submit borrow"
+    expected:
+      - "Revert due to allowance"
+    outputs:
+      - "revert_reason"
+
+  - id: "TC-BORROW-003"
+    group: "C"
+    priority: "P0"
+    title: "Approve then borrow"
+    preconditions:
+      - "allowance = 0"
+    steps:
+      - "Approve token spending"
+      - "Submit borrow"
+    expected:
+      - "Approve success"
+      - "Borrow success"
+    outputs:
+      - "approve_tx"
+      - "borrow_tx"
+
+  - id: "TC-BORROW-004"
+    group: "C"
+    priority: "P0"
+    title: "minBorrowBps protection revert"
+    preconditions:
+      - "Can create market movement"
+    steps:
+      - "Set minBorrowBps=9500"
+      - "Create movement so currBorrow*10000 < refBorrow*minBorrowBps"
+      - "Submit borrow"
+    expected:
+      - "Borrow transaction reverts"
+    outputs:
+      - "ref_curr_snapshot"
+      - "revert_reason"
+
+  - id: "TC-BORROW-005"
+    group: "C"
+    priority: "P0"
+    title: "Denominator <= 0 should revert"
+    preconditions:
+      - "Construct denominator <= 0 state"
+    steps:
+      - "Submit borrow"
+    expected:
+      - "Borrow reverts"
+    outputs:
+      - "denominator_snapshot"
+      - "revert_reason"
+
+  - id: "TC-BORROW-006"
+    group: "C"
+    priority: "P0"
+    title: "Pause and unpause borrow path"
+    preconditions:
+      - "Governance account available"
+    steps:
+      - "Pause new borrow"
+      - "Try user borrow"
+      - "Unpause"
+      - "Try user borrow again"
+    expected:
+      - "Borrow fails while paused"
+      - "Borrow succeeds after unpause"
+    outputs:
+      - "pause_tx"
+      - "unpause_tx"
+      - "borrow_txs"
+
+  - id: "TC-REPAY-001"
+    group: "D"
+    priority: "P0"
+    title: "Repay in [3,6) with zero penalty"
+    preconditions:
+      - "Order exists"
+    steps:
+      - "Move time to [3,6)"
+      - "Repay single order"
+    expected:
+      - "Penalty = 0"
+      - "Repay succeeds"
+    outputs:
+      - "settlement_detail"
+
+  - id: "TC-REPAY-002"
+    group: "D"
+    priority: "P0"
+    title: "Penalty tiers validation"
+    preconditions:
+      - "Order exists"
+    steps:
+      - "Repay at [0,1) [1,2) [2,3) [6,7) [7,8) [8,9)"
+    expected:
+      - "Penalty ratios: 90/60/30/30/60/90%"
+    outputs:
+      - "tier_penalty_comparison"
+
+  - id: "TC-REPAY-003"
+    group: "D"
+    priority: "P0"
+    title: "Batch repay exact wei total"
+    preconditions:
+      - "Multiple non-overdue orders"
+    steps:
+      - "Submit batch repay with exact wei total"
+    expected:
+      - "Batch succeeds"
+    outputs:
+      - "per_order_due"
+      - "sum_check"
+
+  - id: "TC-REPAY-004"
+    group: "D"
+    priority: "P0"
+    title: "Batch repay mismatch wei should revert"
+    preconditions:
+      - "Same as TC-REPAY-003"
+    steps:
+      - "Submit with total +1 wei"
+      - "Submit with total -1 wei"
+    expected:
+      - "Both transactions revert"
+    outputs:
+      - "revert_reasons"
+
+  - id: "TC-REPAY-005"
+    group: "D"
+    priority: "P0"
+    title: "Non-owner cannot repay others non-overdue order"
+    preconditions:
+      - "User A has active non-overdue order"
+    steps:
+      - "User B tries to repay User A order"
+    expected:
+      - "Revert for ownership check"
+    outputs:
+      - "revert_reason"
+
+  - id: "TC-LIQ-001"
+    group: "E"
+    priority: "P0"
+    title: "Overdue cannot use normal repay path"
+    preconditions:
+      - "Order age >= 9 days"
+    steps:
+      - "Attempt normal repay"
+    expected:
+      - "Normal repay path not allowed"
+    outputs:
+      - "status_or_revert"
+
+  - id: "TC-LIQ-002"
+    group: "E"
+    priority: "P0"
+    title: "Public liquidation for overdue order"
+    preconditions:
+      - "Order age >= 9 days"
+    steps:
+      - "Any address calls public liquidation"
+    expected:
+      - "Liquidation succeeds"
+      - "100% pledged goes to dead address"
+    outputs:
+      - "liquidation_tx"
+      - "dead_balance_delta"
+
+  - id: "TC-LIQ-003"
+    group: "E"
+    priority: "P1"
+    title: "Overdue should not block other repayable orders"
+    preconditions:
+      - "Batch includes overdue and non-overdue orders"
+    steps:
+      - "Submit batch processing"
+    expected:
+      - "Non-overdue orders still processed"
+      - "Overdue not counted in repay total"
+    outputs:
+      - "batch_result_detail"
+
+  - id: "TC-AUTH-001"
+    group: "F"
+    priority: "P0"
+    title: "Unauthorized governance ops should fail"
+    preconditions:
+      - "Normal user account available"
+    steps:
+      - "Try setRho"
+      - "Try blacklist update"
+      - "Try pause/unpause"
+    expected:
+      - "All unauthorized calls revert"
+    outputs:
+      - "failed_calls_report"
+
+  - id: "TC-AUTH-002"
+    group: "F"
+    priority: "P0"
+    title: "Vault BNB cannot be arbitrarily transferred out"
+    preconditions:
+      - "Any account available"
+    steps:
+      - "Try non-whitelisted path to transfer vault BNB out"
+    expected:
+      - "Operation fails"
+    outputs:
+      - "revert_reason"
+
+  - id: "TC-UI-001"
+    group: "G"
+    priority: "P1"
+    title: "Overview cards match chain snapshots"
+    preconditions:
+      - "Frontend connected to test chain"
+    steps:
+      - "Read overview values: vault BNB/exposure/estimation"
+      - "Compare against chain/script snapshots"
+    expected:
+      - "Displayed values consistent with snapshots"
+    outputs:
+      - "screenshots"
+      - "value_comparison"
+
+  - id: "TC-UI-002"
+    group: "G"
+    priority: "P1"
+    title: "Approve -> Borrow UI state machine"
+    preconditions:
+      - "allowance insufficient"
+    steps:
+      - "Trigger approve"
+      - "Trigger borrow"
+    expected:
+      - "Button labels and states switch correctly"
+    outputs:
+      - "screenshots"
+      - "tx_hashes"
+
+  - id: "TC-UI-003"
+    group: "G"
+    priority: "P1"
+    title: "Overdue selection disabled and totals correct"
+    preconditions:
+      - "Order list includes >=9 day orders"
+    steps:
+      - "Open My Borrow list"
+      - "Try selecting overdue rows"
+      - "Verify sticky summary totals"
+    expected:
+      - "Overdue rows cannot be selected"
+      - "Summary totals are correct"
+    outputs:
+      - "screenshots"
+      - "total_comparison"
+
+  - id: "TC-UI-004"
+    group: "G"
+    priority: "P1"
+    title: "Mobile minimum regressions"
+    preconditions:
+      - "Viewport breakpoints: 375x812, 390x844, 768x1024"
+    steps:
+      - "Run connect -> approve -> borrow -> repay flow on each viewport"
+    expected:
+      - "Main CTA clickable"
+      - "Sticky summary does not block critical info"
+      - "Flow remains operable"
+    outputs:
+      - "per_viewport_screenshots"
+
+  - id: "TC-LOG-001"
+    group: "H"
+    priority: "P0"
+    title: "Periodic key log emission"
+    preconditions:
+      - "Test run in progress"
+    steps:
+      - "Emit key logs every 10-15 minutes or every 100 tx"
+    expected:
+      - "Required fields present"
+    outputs:
+      - "qa-key-log-*.jsonl"
+
+  - id: "TC-LOG-002"
+    group: "H"
+    priority: "P0"
+    title: "Alert thresholds and stop conditions"
+    preconditions:
+      - "Deviation or assertion error present"
+    steps:
+      - "Evaluate deltaPct threshold"
+      - "Evaluate bnbTotalMatchPassRate/anomalies"
+    expected:
+      - "WARN when |deltaPct| > 5%"
+      - "ERROR and stop when consistency check fails"
+    outputs:
+      - "alerts_report"
+      - "stop_reason"
+
+  - id: "TC-LOG-003"
+    group: "H"
+    priority: "P1"
+    title: "Run summary generation"
+    preconditions:
+      - "Run completed"
+    steps:
+      - "Generate summary.json"
+    expected:
+      - "Summary contains pass rate/failures/key tx hashes/blocks/seed"
+    outputs:
+      - "summary.json"

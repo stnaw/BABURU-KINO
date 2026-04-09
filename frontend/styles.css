@@ -224,6 +224,16 @@ main {
   font-size: 1.4rem;
   font-weight: 700;
   box-shadow: 0 14px 28px rgba(228, 164, 194, 0.26);
+  overflow: hidden;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transform: scale(1.14);
+  transform-origin: center;
 }
 
 .brand h1,
@@ -579,12 +589,24 @@ html[lang="zh-CN"] .filter-chip {
 }
 
 .site-footer p {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   margin: 0;
   color: color-mix(in oklch, var(--ink-soft) 72%, white);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.footer-logo {
+  width: 0.92rem;
+  height: 0.92rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  opacity: 0.92;
 }
 
 .section {
@@ -689,6 +711,9 @@ html[lang="zh-CN"] .filter-chip {
 }
 
 .hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-family: var(--font-brand);
   width: fit-content;
   margin: 0;
@@ -702,6 +727,15 @@ html[lang="zh-CN"] .filter-chip {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
+}
+
+.hero-badge-logo {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  box-shadow: 0 4px 10px rgba(207, 153, 181, 0.2);
 }
 
 .hero-description {
@@ -1306,6 +1340,24 @@ html[lang="zh-CN"] .hero-description {
   box-shadow: 0 6px 12px rgba(219, 180, 179, 0.16);
 }
 
+.metric-kicker-with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.metric-kicker-with-logo::before {
+  display: none;
+}
+
+.metric-kicker-logo {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
 .metric-card > strong {
   align-self: end;
   margin: 0;
@@ -1412,6 +1464,23 @@ html[lang="zh-CN"] .hero-description {
   margin-top: 10px;
   position: relative;
   z-index: 2;
+}
+
+.metric-card-reserve .metric-stack-inline {
+  align-self: start;
+  width: min(100%, 15rem);
+  margin-top: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+.metric-card-reserve .metric-stack-inline-wide {
+  width: 100%;
+  max-width: none;
+}
+
+.metric-card-reserve .metric-stack-row {
+  width: 100%;
 }
 
 .metric-card-heat .metric-stack-inline-wide {
@@ -1814,6 +1883,14 @@ html[lang="zh-CN"] .hero-description {
   margin-top: 0;
 }
 
+.estimate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
 .estimate-eyebrow {
   margin: 0;
   color: var(--ink-soft);
@@ -1858,6 +1935,14 @@ input[type="range"] {
   gap: 8px;
   margin-top: 6px;
   align-items: center;
+}
+
+.field-note {
+  display: block;
+  margin-top: 0.5rem;
+  color: color-mix(in oklch, var(--ink-soft) 84%, white);
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 
 .range-meta strong {
@@ -2715,6 +2800,11 @@ html[lang="zh-CN"] .faq-list summary {
     font-size: 1.12rem;
   }
 
+  .hero-badge-logo {
+    width: 1rem;
+    height: 1rem;
+  }
+
   .brand h1 {
     font-size: 0.98rem;
     line-height: 1;
@@ -3064,6 +3154,11 @@ html[lang="zh-CN"] .faq-list summary {
 
   .estimate-inline {
     gap: 4px;
+  }
+
+  .estimate-head {
+    align-items: flex-start;
+    gap: 8px;
   }
 
   .field {

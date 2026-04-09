@@ -42,6 +42,11 @@ describe("BaburuKinko", function () {
     expect(order.borrower).to.equal(borrower.address);
     expect(order.collateralAmount).to.equal(collateral);
     expect(await kinko.activeOrderCount()).to.equal(1n);
+
+    const [liveBalance, borrowedOutstanding, totalManaged] = await kinko.treasurySnapshot();
+    expect(liveBalance).to.equal(ethers.parseEther("500") - quote);
+    expect(borrowedOutstanding).to.equal(quote);
+    expect(totalManaged).to.equal(ethers.parseEther("500"));
   });
 
   it("repays during the no-fee window", async function () {

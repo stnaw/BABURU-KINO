@@ -469,12 +469,77 @@ const publicLiquidationButton = document.getElementById("public-liquidation-butt
 const metricAnimationState = new WeakMap();
 let activeLoanFilter = "all";
 let toastHideTimer = null;
+const SUBSCRIPT_DIGITS = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉" };
+
+function toSubscriptDigits(value) {
+  return String(Math.max(0, Number(value) || 0))
+    .split("")
+    .map((digit) => SUBSCRIPT_DIGITS[digit] || digit)
+    .join("");
+}
+
+function formatWithTinySubscript(value, {
+  minimumFractionDigits = 0,
+  maximumFractionDigits = 0,
+  tinyThreshold = 0,
+  tinySignificantDigits = 4,
+  tinyFixedDigits = 18,
+} = {}) {
+  if (!Number.isFinite(value)) return "--";
+
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+
+  if (tinyThreshold > 0 && absValue > 0 && absValue < tinyThreshold) {
+    const fixed = absValue.toFixed(tinyFixedDigits);
+    const [, fraction = ""] = fixed.split(".");
+    const trimmedFraction = fraction.replace(/0+$/, "");
+    const zeroCount = trimmedFraction.search(/[1-9]/);
+
+    if (zeroCount >= 0) {
+      const significant = trimmedFraction.slice(zeroCount, zeroCount + tinySignificantDigits) || "0";
+      return `${sign}0.${toSubscriptDigits(zeroCount)}${significant}`;
+    }
+  }
+
+  return new Intl.NumberFormat(currentLang === "zh" ? "zh-CN" : "en-US", {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  }).format(value);
+}
 
 function formatNumber(value, maximumFractionDigits = 0) {
-  return new Intl.NumberFormat(currentLang === "zh" ? "zh-CN" : "en-US", {
+  return formatWithTinySubscript(value, {
     maximumFractionDigits,
     minimumFractionDigits: maximumFractionDigits,
-  }).format(value);
+    tinyThreshold: maximumFractionDigits > 0 ? 1 / (10 ** maximumFractionDigits) : 0,
+  });
+}
+
+function formatMetricDisplay(value, { maximumFractionDigits = 0, suffix = "" } = {}) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return {
+      plainText: `--${suffix}`,
+      markup: `--${suffix}`,
+      isTiny: false,
+    };
+  }
+
+  const plainText = `${formatNumber(numericValue, maximumFractionDigits)}${suffix}`;
+  return {
+    plainText,
+    markup: plainText,
+    isTiny: plainText.includes("₀") || plainText.includes("₁") || plainText.includes("₂") || plainText.includes("₃") || plainText.includes("₄") || plainText.includes("₅") || plainText.includes("₆") || plainText.includes("₇") || plainText.includes("₈") || plainText.includes("₉"),
+  };
+}
+
+function renderMetricDisplay(node, value, options = {}) {
+  const { plainText, markup, isTiny } = formatMetricDisplay(value, options);
+  node.textContent = markup;
+  node.setAttribute("aria-label", plainText);
+  node.setAttribute("title", plainText);
+  node.classList.toggle("metric-value-tiny", isTiny);
 }
 
 function animateMetricNumber(node, nextValue, { maximumFractionDigits = 0, suffix = "" } = {}) {
@@ -484,9 +549,10 @@ function animateMetricNumber(node, nextValue, { maximumFractionDigits = 0, suffi
   const startValue = Number(previous);
   const targetValue = Number(nextValue);
   const metricCard = node.closest(".metric-card");
+  const formatOptions = { maximumFractionDigits, suffix };
 
   if (!Number.isFinite(startValue) || Math.abs(targetValue - startValue) < 0.000001 || prefersReducedMotion) {
-    node.textContent = `${formatNumber(targetValue, maximumFractionDigits)}${suffix}`;
+    renderMetricDisplay(node, targetValue, formatOptions);
     metricAnimationState.set(node, targetValue);
     return;
   }
@@ -506,7 +572,7 @@ function animateMetricNumber(node, nextValue, { maximumFractionDigits = 0, suffi
     const progress = Math.min((now - startAt) / duration, 1);
     const eased = 1 - Math.pow(1 - progress, 4);
     const currentValue = startValue + (targetValue - startValue) * eased;
-    node.textContent = `${formatNumber(currentValue, maximumFractionDigits)}${suffix}`;
+    renderMetricDisplay(node, currentValue, formatOptions);
 
     if (progress < 1) {
       requestAnimationFrame(frame);
@@ -1005,7 +1071,11 @@ function getLoanTimingState(startAt) {
 }
 
 function formatTokenAmount(rawValue) {
-  return formatNumber(Number(ethers.formatUnits(rawValue, 18)));
+  return formatWithTinySubscript(Number(ethers.formatUnits(rawValue, 18)), {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+    tinyThreshold: 0.0001,
+  });
 }
 
 function normalizeTokenInput(value) {
@@ -1016,17 +1086,19 @@ function normalizeTokenInput(value) {
 }
 
 function formatTokenInputValue(rawValue, maximumFractionDigits = 4) {
-  return new Intl.NumberFormat(currentLang === "zh" ? "zh-CN" : "en-US", {
+  return formatWithTinySubscript(Number(ethers.formatUnits(rawValue, 18)), {
     minimumFractionDigits: 0,
     maximumFractionDigits,
-  }).format(Number(ethers.formatUnits(rawValue, 18)));
+    tinyThreshold: 1 / (10 ** maximumFractionDigits),
+  });
 }
 
 function formatWalletTokenAmount(rawValue) {
-  return new Intl.NumberFormat(currentLang === "zh" ? "zh-CN" : "en-US", {
+  return formatWithTinySubscript(Number(ethers.formatUnits(rawValue, 18)), {
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
-  }).format(Number(ethers.formatUnits(rawValue, 18)));
+    tinyThreshold: 0.0001,
+  });
 }
 
 function formatBnbAmount(rawValue) {
@@ -1062,14 +1134,17 @@ function formatBnbValue(value, maximumFractionDigits = 3) {
     }).format(value);
   }
 
-  if (absValue >= 0.00000001) {
-    return new Intl.NumberFormat(currentLang === "zh" ? "zh-CN" : "en-US", {
+  if (absValue >= 0.000000000001) {
+    return formatWithTinySubscript(value, {
       minimumFractionDigits: 8,
       maximumFractionDigits: 8,
-    }).format(value);
+      tinyThreshold: 0.00000001,
+      tinySignificantDigits: 4,
+      tinyFixedDigits: 20,
+    });
   }
 
-  return "<0.00000001";
+  return "<0.₁₁1";
 }
 
 function formatBorrowedAt(timestamp) {

@@ -1318,6 +1318,19 @@ html[lang="zh-CN"] .hero-description {
   white-space: nowrap;
 }
 
+.metric-card > strong.metric-value-tiny {
+  font-size: clamp(1.68rem, 3.2vw, 2.7rem);
+  letter-spacing: -0.03em;
+}
+
+.metric-card > strong sub {
+  font-size: 0.42em;
+  line-height: 1;
+  vertical-align: -0.18em;
+  font-variant-numeric: tabular-nums lining-nums;
+  margin: 0 0.02em 0 0.01em;
+}
+
 .metric-stack {
   position: relative;
   z-index: 1;

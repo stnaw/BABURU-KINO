@@ -71,6 +71,12 @@ function formatBaburu(value) {
   return hre.ethers.formatUnits(value, 18);
 }
 
+async function ensureTokenBalance(token, deployer, account, targetBalance) {
+  const currentBalance = await token.balanceOf(account);
+  if (currentBalance >= targetBalance) return;
+  await (await token.connect(deployer).transfer(account, targetBalance - currentBalance)).wait();
+}
+
 async function getUserOrders(kinko, user) {
   return kinko.getBorrowerOrderViews(user.address);
 }
@@ -117,11 +123,8 @@ async function main() {
   await kinko.connect(deployer).setBlacklist(blacklist.address, true);
 
   for (const user of users) {
-    const currentBalance = await baburu.balanceOf(user.address);
     const targetBalance = hre.ethers.parseUnits("5000000", 18);
-    if (currentBalance < targetBalance) {
-      await (await baburu.connect(deployer).mint(user.address, targetBalance - currentBalance)).wait();
-    }
+    await ensureTokenBalance(baburu, deployer, user.address, targetBalance);
 
     const allowance = await baburu.allowance(user.address, config.kinkoAddress);
     if (allowance < hre.ethers.MaxUint256 / 2n) {

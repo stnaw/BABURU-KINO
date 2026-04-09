@@ -54,7 +54,7 @@
       </div>
     </header>
 
-    <section class="top-status-banner">
+    <section class="top-status-banner" hidden>
       <span class="banner-charm" aria-hidden="true">🍬</span>
       <div class="banner-copy">
         <strong data-i18n="loanOpen"></strong>
@@ -124,6 +124,34 @@
               </div>
             </div>
           </article>
+          <article class="metric-card metric-card-heat tilt-card">
+            <div class="metric-ornament metric-ornament-sprinkles" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="metric-card-actions">
+              <button class="ghost-button small metric-action-button" id="public-liquidation-button" type="button" data-i18n="publicLiquidation"></button>
+            </div>
+            <span class="metric-kicker metric-kicker-with-logo">
+              <span class="metric-kicker-inline">
+                <img class="metric-kicker-logo" src="./logo.jpg" alt="" aria-hidden="true" />
+                <span data-i18n="metricMarketNote"></span>
+              </span>
+            </span>
+            <strong id="price-metric">TBA</strong>
+            <div class="metric-stack-inline metric-stack-inline-wide">
+              <div class="metric-stack-row">
+                <span data-i18n="metricActiveCollateral"></span>
+                <strong id="active-collateral-metric">--</strong>
+              </div>
+              <div class="metric-stack-row">
+                <span data-i18n="metricPendingLiquidation"></span>
+                <strong id="liquidatable-collateral-metric">--</strong>
+              </div>
+            </div>
+          </article>
           <article class="metric-card metric-card-limit tilt-card">
             <div class="metric-ornament metric-ornament-arc" aria-hidden="true">
               <span></span>
@@ -140,32 +168,6 @@
             </div>
             <span class="metric-kicker" data-i18n="metricExposureNote"></span>
             <strong id="active-loans-metric">--</strong>
-          </article>
-          <article class="metric-card metric-card-heat tilt-card">
-            <div class="metric-ornament metric-ornament-sprinkles" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="metric-card-actions">
-              <button class="ghost-button small metric-action-button" id="public-liquidation-button" type="button" data-i18n="publicLiquidation"></button>
-            </div>
-            <span class="metric-kicker metric-kicker-with-logo">
-              <img class="metric-kicker-logo" src="./logo.jpg" alt="" aria-hidden="true" />
-              <span data-i18n="metricMarketNote"></span>
-            </span>
-            <strong id="price-metric">TBA</strong>
-            <div class="metric-stack-inline metric-stack-inline-wide">
-              <div class="metric-stack-row">
-                <span data-i18n="metricActiveCollateral"></span>
-                <strong id="active-collateral-metric">--</strong>
-              </div>
-              <div class="metric-stack-row">
-                <span data-i18n="metricPendingLiquidation"></span>
-                <strong id="liquidatable-collateral-metric">--</strong>
-              </div>
-            </div>
           </article>
         </div>
       </section>

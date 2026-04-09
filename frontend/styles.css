@@ -36,13 +36,13 @@
   --transition: 280ms var(--ease-out-quint);
   --transition-fast: 160ms var(--ease-out-quart);
   --transition-slow: 460ms var(--ease-out-expo);
-  --text-xs: 0.82rem;
-  --text-sm: 0.94rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.3rem;
-  --text-2xl: clamp(1.7rem, 2.2vw, 2.35rem);
-  --text-hero: clamp(3.1rem, 7vw, 6rem);
+  --text-xs: 0.8rem;
+  --text-sm: 0.91rem;
+  --text-base: 0.98rem;
+  --text-lg: 1.06rem;
+  --text-xl: 1.22rem;
+  --text-2xl: clamp(1.6rem, 2vw, 2.15rem);
+  --text-hero: clamp(2.8rem, 6.15vw, 5.2rem);
   --leading-tight: 1.05;
   --leading-snug: 1.18;
   --leading-body: 1.65;
@@ -52,12 +52,12 @@ html[lang="zh-CN"] {
   --font-display: "Baloo 2", "Noto Sans SC", sans-serif;
   --font-body: "Noto Sans SC", "Nunito", sans-serif;
   --font-story: "M PLUS Rounded 1c", "Noto Sans SC", sans-serif;
-  --text-sm: 0.92rem;
-  --text-base: 1.02rem;
-  --text-lg: 1.08rem;
-  --text-xl: 1.22rem;
-  --text-2xl: clamp(1.52rem, 1.9vw, 1.96rem);
-  --text-hero: clamp(2.68rem, 5.8vw, 5.1rem);
+  --text-sm: 0.88rem;
+  --text-base: 0.98rem;
+  --text-lg: 1.02rem;
+  --text-xl: 1.14rem;
+  --text-2xl: clamp(1.46rem, 1.72vw, 1.82rem);
+  --text-hero: clamp(2.46rem, 4.95vw, 4.35rem);
   --leading-tight: 1.12;
   --leading-snug: 1.24;
   --leading-body: 1.72;
@@ -248,13 +248,13 @@ main {
 
 .brand h1 {
   font-family: var(--font-brand);
-  font-size: 1.28rem;
+  font-size: 1.18rem;
   font-weight: 700;
 }
 
 html[lang="zh-CN"] .brand h1 {
   letter-spacing: 0;
-  font-size: 1.22rem;
+  font-size: 1.12rem;
 }
 
  .hero h2 {
@@ -517,7 +517,7 @@ html[lang="zh-CN"] .filter-chip {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 13px 20px;
+  padding: 12px 18px;
   border-radius: var(--radius-sm);
   text-decoration: none;
   font-size: var(--text-sm);
@@ -632,8 +632,8 @@ html[lang="zh-CN"] .filter-chip {
   width: fit-content;
   margin-bottom: 0;
   white-space: nowrap;
-  letter-spacing: -0.05em;
-  line-height: 0.92;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
   text-wrap: balance;
 }
 
@@ -655,7 +655,7 @@ html[lang="zh-CN"] .filter-chip {
   position: relative;
   isolation: isolate;
   display: grid;
-  gap: 18px;
+  gap: 16px;
   width: 100%;
   max-width: none;
 }
@@ -676,10 +676,10 @@ html[lang="zh-CN"] .filter-chip {
   position: relative;
   isolation: isolate;
   display: grid;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
   max-width: none;
-  padding: clamp(28px, 3vw, 40px) clamp(24px, 4vw, 44px);
+  padding: clamp(26px, 2.7vw, 36px) clamp(22px, 3.6vw, 38px);
   border-radius: 34px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(255, 248, 251, 0.7)),
@@ -717,7 +717,7 @@ html[lang="zh-CN"] .filter-chip {
   font-family: var(--font-brand);
   width: fit-content;
   margin: 0;
-  padding: 0.55rem 0.95rem;
+  padding: 0.5rem 0.88rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
@@ -743,6 +743,7 @@ html[lang="zh-CN"] .filter-chip {
   max-width: none;
   color: color-mix(in oklch, var(--ink-soft) 88%, white);
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 html[lang="zh-CN"] .hero-description {
@@ -750,7 +751,7 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .hero-marquee {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.58);
   box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.1);
@@ -936,7 +937,7 @@ html[lang="zh-CN"] .hero-description {
   width: fit-content;
   max-width: min(calc(100% - 32px), 42rem);
   margin: 10px auto 24px;
-  padding: 14px 18px;
+  padding: 14px 52px 14px 18px;
   display: flex;
   position: sticky;
   top: 104px;
@@ -951,6 +952,7 @@ html[lang="zh-CN"] .hero-description {
   box-shadow: var(--shadow-soft);
   opacity: 1;
   transform: translateY(0) scale(1);
+  overflow: visible;
   transition:
     opacity 180ms var(--ease-out-quart),
     transform 220ms var(--ease-out-quint),
@@ -964,6 +966,10 @@ html[lang="zh-CN"] .hero-description {
 .top-status-banner.is-closing {
   opacity: 0;
   transform: translateY(-0.45rem) scale(0.985);
+}
+
+.top-status-banner.is-entering {
+  animation: banner-enter 420ms var(--ease-out-quint);
 }
 
 .floating-toast {
@@ -1109,6 +1115,17 @@ html[lang="zh-CN"] .hero-description {
   }
 }
 
+@keyframes banner-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.38rem) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .banner-charm,
 .banner-sparkle {
   display: inline-grid;
@@ -1131,8 +1148,8 @@ html[lang="zh-CN"] .hero-description {
 .banner-close {
   display: inline-grid;
   place-items: center;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.7rem;
+  height: 1.7rem;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -1140,18 +1157,24 @@ html[lang="zh-CN"] .hero-description {
   box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: 0.94rem;
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
   flex: 0 0 auto;
-  position: relative;
+  position: absolute;
+  top: -6px;
+  right: -6px;
   z-index: 2;
   pointer-events: auto;
   transition:
     transform 160ms ease,
     background-color 160ms ease,
     color 160ms ease;
+}
+
+.banner-close[hidden] {
+  display: none !important;
 }
 
 .banner-close:hover {
@@ -1163,6 +1186,7 @@ html[lang="zh-CN"] .hero-description {
 .top-status-banner strong {
   font-size: var(--text-lg);
   line-height: var(--leading-snug);
+  letter-spacing: -0.01em;
 }
 
 .banner-copy {
@@ -1268,7 +1292,8 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metrics-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .transparency-grid {
@@ -1341,13 +1366,15 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metric-kicker-with-logo {
-  display: inline-flex;
-  align-items: center;
+  display: inline-grid;
+  justify-items: start;
   gap: 0.42rem;
 }
 
-.metric-kicker-with-logo::before {
-  display: none;
+.metric-kicker-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
 }
 
 .metric-kicker-logo {
@@ -1392,20 +1419,21 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metric-stack-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 10px;
   min-width: 0;
-  padding-top: 6px;
+  min-height: 2.5rem;
+  padding-top: 8px;
   border-top: 1px dashed rgba(127, 87, 111, 0.12);
 }
 
 .metric-stack-row span {
   color: color-mix(in oklch, var(--ink-soft) 82%, white);
-  font-size: 0.72rem;
+  font-size: 0.69rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -1414,20 +1442,23 @@ html[lang="zh-CN"] .hero-description {
   color: var(--ink);
   font-size: 0.98rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   white-space: nowrap;
   font-variant-numeric: tabular-nums lining-nums;
+  text-align: right;
 }
 
 .metric-stack-inline {
   align-self: end;
-  width: min(100%, 12.5rem);
+  width: 100%;
+  max-width: none;
   gap: 6px;
 }
 
 .metric-stack-inline-wide {
-  width: min(100%, 15rem);
+  width: 100%;
+  max-width: none;
   margin-top: 6px;
 }
 
@@ -1453,7 +1484,7 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metrics-grid .metric-card-heat {
-  grid-column: span 2;
+  grid-column: span 1;
   display: grid;
   align-content: start;
 }
@@ -1462,14 +1493,17 @@ html[lang="zh-CN"] .hero-description {
   align-self: start;
   width: 100%;
   margin-top: 10px;
+  min-height: 5.6rem;
   position: relative;
   z-index: 2;
 }
 
 .metric-card-reserve .metric-stack-inline {
   align-self: start;
-  width: min(100%, 15rem);
+  width: 100%;
+  max-width: none;
   margin-top: 10px;
+  min-height: 5.6rem;
   position: relative;
   z-index: 2;
 }
@@ -1493,7 +1527,7 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metric-stack-inline .metric-stack-row {
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
 .metric-stack-inline .metric-stack-row span {
@@ -1698,7 +1732,7 @@ html[lang="zh-CN"] .hero-description {
 
 .counter {
   font-family: var(--font-data);
-  font-size: clamp(2.1rem, 4vw, 3.6rem);
+  font-size: clamp(1.95rem, 3.65vw, 3.15rem);
   line-height: 0.95;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
@@ -2847,6 +2881,7 @@ html[lang="zh-CN"] .faq-list summary {
   .topbar-actions .ghost-button {
     min-height: 42px;
     padding: 11px 14px;
+    font-size: 0.82rem;
     white-space: nowrap;
   }
 
@@ -2875,21 +2910,21 @@ html[lang="zh-CN"] .faq-list summary {
 
   .hero h2 {
     max-width: 100%;
-    font-size: clamp(2.1rem, 10.5vw, 3.2rem);
+    font-size: clamp(2.02rem, 10vw, 2.92rem);
     letter-spacing: -0.03em;
     margin-bottom: 0;
     white-space: normal;
   }
 
   html[lang="zh-CN"] .hero h2 {
-    font-size: clamp(2rem, 9vw, 2.88rem);
+    font-size: clamp(1.88rem, 8.4vw, 2.64rem);
     line-height: 1.08;
     letter-spacing: -0.005em;
   }
 
   .hero-description {
     max-width: 30ch;
-    font-size: var(--text-base);
+    font-size: 0.92rem;
     line-height: 1.58;
     white-space: normal;
   }
@@ -2905,6 +2940,11 @@ html[lang="zh-CN"] .faq-list summary {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
+  }
+
+  .hero-badge {
+    font-size: 0.74rem;
+    padding: 0.46rem 0.78rem;
   }
 
   .hero-actions {
@@ -2991,7 +3031,7 @@ html[lang="zh-CN"] .faq-list summary {
     margin: 8px auto 18px;
     width: min(calc(100% - 20px), 100%);
     max-width: none;
-    padding: 12px 14px;
+    padding: 12px 42px 12px 14px;
     top: 84px;
     gap: 6px;
     border-radius: 22px;
@@ -3000,9 +3040,23 @@ html[lang="zh-CN"] .faq-list summary {
     align-items: center;
   }
 
+  .banner-close {
+    top: -5px;
+    right: -5px;
+  }
+
   .banner-copy {
     grid-column: 2;
     display: grid;
+    gap: 0.1rem;
+  }
+
+  .top-status-banner strong {
+    font-size: 0.94rem;
+  }
+
+  .banner-copy p {
+    font-size: 0.8rem;
   }
 
   .banner-sparkle {
@@ -3021,7 +3075,7 @@ html[lang="zh-CN"] .faq-list summary {
   }
 
   .section-heading h3 {
-    font-size: clamp(1.45rem, 7vw, 1.95rem);
+    font-size: clamp(1.34rem, 6.2vw, 1.78rem);
     max-width: none;
   }
 
@@ -3083,13 +3137,13 @@ html[lang="zh-CN"] .faq-list summary {
   }
 
   .metric-card > strong {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
   }
 
   .metric-kicker {
     max-width: calc(100% - 4.25rem);
     gap: 0.42rem;
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     line-height: 1.18;
   }
 
@@ -3423,7 +3477,7 @@ html[lang="zh-CN"] .faq-list summary {
     color: var(--ink);
     font-weight: 800;
     background: rgba(255, 255, 255, 0.78);
-    font-size: 0.88rem;
+    font-size: 0.78rem;
   }
 
   .repay-bar {

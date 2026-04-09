@@ -60,6 +60,12 @@ function formatEth(value) {
   return hre.ethers.formatEther(value);
 }
 
+async function ensureTokenBalance(token, deployer, account, targetBalance) {
+  const currentBalance = await token.balanceOf(account);
+  if (currentBalance >= targetBalance) return;
+  await (await token.connect(deployer).transfer(account, targetBalance - currentBalance)).wait();
+}
+
 function deltaPct(expected, actual) {
   if (expected === 0n) return "0.00%";
   const basisPoints = Number(((actual - expected) * 10_000n) / expected);
@@ -80,9 +86,9 @@ async function main() {
 
   const actorAddresses = [userA, userB, userC, userD, userE].map((signer) => signer.address);
   for (const actor of actorAddresses) {
-    await (await baburu.connect(deployer).mint(actor, hre.ethers.parseUnits("2500000", 18))).wait();
+    await ensureTokenBalance(baburu, deployer, actor, hre.ethers.parseUnits("2500000", 18));
   }
-  await (await baburu.connect(deployer).mint(blacklist.address, hre.ethers.parseUnits("12000000", 18))).wait();
+  await ensureTokenBalance(baburu, deployer, blacklist.address, hre.ethers.parseUnits("12000000", 18));
 
   const balanceSeries = [];
   const rounds = [];

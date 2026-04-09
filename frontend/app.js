@@ -395,6 +395,9 @@ const translations = {
 let currentLang = localStorage.getItem("baburu-lang") || "en";
 let connectedAddress = "";
 let bannerState = "open";
+let forceBannerForLowBaburu = false;
+let bannerWasVisible = false;
+let pageReadyForBanner = document.readyState === "complete";
 const helpHideTimers = new Map();
 let browserProvider;
 let rpcProvider;
@@ -1040,9 +1043,34 @@ function canRestoreLocalDevSession(address) {
 function renderBanner() {
   if (!bannerTitle || !bannerText || !topStatusBanner) return;
 
+  if (!pageReadyForBanner) {
+    topStatusBanner.hidden = true;
+    return;
+  }
+
+  const wasHidden = topStatusBanner.hidden;
   topStatusBanner.classList.remove("is-closing");
-  topStatusBanner.hidden = localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
-  if (topStatusBanner.hidden) return;
+  const shouldForceBanner = !connectedAddress || forceBannerForLowBaburu;
+  const dismissed = localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+  topStatusBanner.hidden = shouldForceBanner ? false : dismissed;
+  if (bannerCloseButton) bannerCloseButton.hidden = shouldForceBanner;
+  if (topStatusBanner.hidden) {
+    topStatusBanner.classList.remove("is-entering");
+    bannerWasVisible = false;
+    return;
+  }
+
+  if ((wasHidden || !bannerWasVisible) && !prefersReducedMotion) {
+    topStatusBanner.classList.remove("is-entering");
+    void topStatusBanner.offsetWidth;
+    topStatusBanner.classList.add("is-entering");
+    window.clearTimeout(topStatusBanner._enterTimer);
+    topStatusBanner._enterTimer = window.setTimeout(() => {
+      topStatusBanner.classList.remove("is-entering");
+    }, 460);
+  }
+
+  bannerWasVisible = true;
 
   if (bannerState === "paused") {
     bannerTitle.textContent = t("pausedBanner");
@@ -1475,12 +1503,18 @@ async function loadVaultMetrics() {
 }
 
 async function loadWalletBalances() {
-  if (!connectedAddress || !APP_CONFIG.baburuTokenAddress) return;
+  if (!connectedAddress || !APP_CONFIG.baburuTokenAddress) {
+    latestWalletBaburuBalance = 0n;
+    forceBannerForLowBaburu = true;
+    renderBanner();
+    return;
+  }
 
   try {
     const contracts = getReadContracts();
     if (!contracts) return;
     latestWalletBaburuBalance = await contracts.baburu.balanceOf(connectedAddress);
+    forceBannerForLowBaburu = latestWalletBaburuBalance <= ethers.parseUnits("1", 18);
     const walletAvailable = document.getElementById("wallet-available");
     if (walletAvailable) {
       walletAvailable.textContent = `${t("walletAvailable").split(":")[0]}: ${formatWalletTokenAmount(latestWalletBaburuBalance)}`;
@@ -1495,7 +1529,10 @@ async function loadWalletBalances() {
     }
   } catch {
     latestWalletBaburuBalance = 0n;
+    forceBannerForLowBaburu = true;
   }
+
+  renderBanner();
 }
 
 function getMaxStakeValue() {
@@ -2257,6 +2294,10 @@ ratioInput?.addEventListener("input", () => {
   void updateBorrowEstimate();
 });
 window.addEventListener("resize", createBubbles);
+window.addEventListener("load", () => {
+  pageReadyForBanner = true;
+  renderBanner();
+});
 
 applyTranslations();
 createBubbles();

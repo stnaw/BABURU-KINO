@@ -9,9 +9,12 @@ const APP_CONFIG = {
   kinkoAddress: window.BABURU_CONFIG?.kinkoAddress || "",
   rpcUrl: window.BABURU_CONFIG?.rpcUrl || "https://bsc-dataseed.binance.org/",
   buyUrl: window.BABURU_CONFIG?.buyUrl || "#",
+  localDevSignerAddress: window.BABURU_CONFIG?.localDevSignerAddress || "",
+  localDevPrivateKey: window.BABURU_CONFIG?.localDevPrivateKey || "",
   nowTs: window.BABURU_CONFIG?.nowTs || "2026-04-08T12:00:00+08:00",
 };
 const LAST_WALLET_LABEL_KEY = "baburu-last-wallet-label";
+const LAST_CONNECTED_ADDRESS_KEY = "baburu-last-connected-address";
 const LAST_RATIO_BPS_KEY = "baburu-last-ratio-bps";
 const BANNER_DISMISSED_KEY = "baburu-banner-dismissed";
 const LOCAL_BORROWER_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
@@ -84,8 +87,8 @@ const translations = {
     minBorrowRatio: "最小借出比例",
     ratioNote: "低于这个比例，本次借款不会成交",
     estimatedBorrow: "预计可借出的 BNB",
-    refBorrowLabel: "预计借款",
-    protectedFloor: "最小借款下限",
+    refBorrowLabel: "预计获得",
+    protectedFloor: "最小获得",
     borrowWindow: "借款时间窗口",
     windowBody: "3-6 天还款无需手续费",
     approveAndBorrow: "授权并借款",
@@ -104,7 +107,7 @@ const translations = {
     timelineGrace: "延后还款滞纳金",
     timelineGraceSteps: "30% → 60% → 90%",
     timelineOverdue: "借款已超期",
-    timelineOverdueNote: "不可还款，金库自动清算。",
+    timelineOverdueNote: "不可还款，金库自动清算",
     loansTitle: "我的借款",
     filterAll: "全部",
     filterNormal: "正常期",
@@ -277,7 +280,7 @@ const translations = {
     timelineGrace: "Late Repayment Penalty",
     timelineGraceSteps: "30% → 60% → 90%",
     timelineOverdue: "Loan Overdue",
-    timelineOverdueNote: "Repayment unavailable. The vault will liquidate it automatically.",
+    timelineOverdueNote: "Repayment unavailable. The vault will liquidate it automatically",
     loansTitle: "My Loans",
     filterAll: "All",
     filterNormal: "Normal Window",
@@ -399,10 +402,12 @@ let walletSigner;
 let connectedWallet = null;
 let latestBorrowQuoteWei = 0n;
 let latestWalletBaburuBalance = 0n;
+let exactStakeWeiOverride = null;
 let vaultRefreshInFlight = false;
 let vaultClockTimer = null;
 let borrowPanelActive = false;
 let nextVaultRefreshAt = Date.now() + VAULT_REFRESH_INTERVAL_MS;
+let borrowerLoansRequestId = 0;
 
 const injected = injectedModule();
 const onboard = Onboard({
@@ -580,14 +585,14 @@ function animateMetricNumber(node, nextValue, { maximumFractionDigits = 0, suffi
   });
   window.setTimeout(() => {
     metricCard?.classList.remove("is-updating");
-  }, 460);
+  }, 760);
 
-  const duration = 520;
+  const duration = 860;
   const startAt = performance.now();
 
   function frame(now) {
     const progress = Math.min((now - startAt) / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 4);
+    const eased = 1 - Math.pow(1 - progress, 5);
     const currentValue = startValue + (targetValue - startValue) * eased;
     renderMetricDisplay(node, currentValue, formatOptions);
 
@@ -637,6 +642,21 @@ function setActionMessage(node, message, tone = "idle") {
   }
 
   showFloatingToast(message, tone);
+}
+
+function setBorrowEstimateStatus(message = "", tone = "idle") {
+  if (!borrowStatus) return;
+
+  if (!message || tone === "idle") {
+    borrowStatus.hidden = true;
+    borrowStatus.textContent = "";
+    borrowStatus.dataset.tone = "idle";
+    return;
+  }
+
+  borrowStatus.hidden = false;
+  borrowStatus.textContent = message;
+  borrowStatus.dataset.tone = tone;
 }
 
 function extractErrorText(error) {
@@ -837,6 +857,17 @@ function getRpcProvider() {
   return rpcProvider;
 }
 
+function canUseLocalDevSigner() {
+  const isLocalHost = ["127.0.0.1", "localhost"].includes(window.location.hostname);
+  const hasLocalKey = Boolean(APP_CONFIG.localDevPrivateKey && APP_CONFIG.localDevSignerAddress);
+  const matchesConnected =
+    connectedAddress &&
+    APP_CONFIG.localDevSignerAddress &&
+    connectedAddress.toLowerCase() === APP_CONFIG.localDevSignerAddress.toLowerCase();
+
+  return isLocalHost && APP_CONFIG.chainId === 31337 && hasLocalKey && matchesConnected;
+}
+
 async function getBrowserProvider() {
   if (!connectedWallet?.provider) return null;
   if (!browserProvider) {
@@ -846,6 +877,12 @@ async function getBrowserProvider() {
 }
 
 async function getSigner() {
+  if (canUseLocalDevSigner()) {
+    const provider = getRpcProvider();
+    if (!provider) return null;
+    return new ethers.Wallet(APP_CONFIG.localDevPrivateKey, provider);
+  }
+
   const provider = await getBrowserProvider();
   if (!provider || !connectedAddress) return null;
   if (!walletSigner) {
@@ -887,6 +924,59 @@ async function ensureSupportedNetwork() {
   }
 
   return false;
+}
+
+async function diagnoseLocalChainIssue() {
+  if (!connectedAddress) {
+    return currentLang === "zh" ? "请先连接钱包后再继续。" : "Connect your wallet before continuing.";
+  }
+
+  let rpcReachable = true;
+  try {
+    const provider = getRpcProvider();
+    if (!provider) throw new Error("rpc unavailable");
+    await provider.getBlockNumber();
+  } catch {
+    rpcReachable = false;
+  }
+
+  if (!rpcReachable) {
+    return currentLang === "zh"
+      ? "本地链节点当前不可用，请先启动本地服务后再试。"
+      : "The local chain is not reachable right now. Start the local services and try again.";
+  }
+
+  let activeChainId = null;
+  try {
+    const chainIdHex = await connectedWallet?.provider?.request?.({ method: "eth_chainId" });
+    activeChainId = chainIdHex ? Number.parseInt(chainIdHex, 16) : null;
+  } catch {}
+
+  if (activeChainId !== APP_CONFIG.chainId) {
+    return currentLang === "zh"
+      ? `当前钱包仍未切到 ${APP_CONFIG.chainId}，请切换网络后再试。`
+      : `Your wallet is still not on chain ${APP_CONFIG.chainId}. Switch networks and try again.`;
+  }
+
+  try {
+    const provider = await getBrowserProvider();
+    const nativeBalance = provider ? await provider.getBalance(connectedAddress) : 0n;
+    if (nativeBalance <= 0n) {
+      return currentLang === "zh"
+        ? "当前钱包地址没有本地链 ETH 支付 gas，请切换到有余额的测试账户。"
+        : "This wallet address has no local-chain ETH for gas. Switch to a funded test account.";
+    }
+  } catch {}
+
+  if (connectedAddress.toLowerCase() !== LOCAL_BORROWER_ADDRESS.toLowerCase()) {
+    return currentLang === "zh"
+      ? "当前连接的不是推荐的 Hardhat 测试账户，建议切换到测试账户后重试。"
+      : "The connected wallet is not the recommended Hardhat test account. Switch to the test account and try again.";
+  }
+
+  return currentLang === "zh"
+    ? "本地链连接异常，请断开钱包后重新连接本地测试链。"
+    : "The local-chain session looks out of sync. Disconnect the wallet and reconnect to the local test chain.";
 }
 
 function getReadContracts() {
@@ -940,6 +1030,13 @@ function renderWalletButton() {
   walletButton.textContent = connectedAddress ? shortenAddress(connectedAddress) : t("connectWallet");
 }
 
+function canRestoreLocalDevSession(address) {
+  if (!address || !APP_CONFIG.localDevSignerAddress) return false;
+  const host = window.location.hostname;
+  const isLocalHost = host === "127.0.0.1" || host === "localhost";
+  return isLocalHost && address.toLowerCase() === APP_CONFIG.localDevSignerAddress.toLowerCase();
+}
+
 function renderBanner() {
   if (!bannerTitle || !bannerText || !topStatusBanner) return;
 
@@ -986,7 +1083,8 @@ function createBubbles() {
 async function updateBorrowEstimate() {
   const stakeValue = normalizeTokenInput(stakeInput.value);
   const minRatioBps = Number(ratioInput.value);
-  const collateralAmount = ethers.parseUnits(stakeValue, 18);
+  syncExactStakeOverride();
+  const collateralAmount = exactStakeWeiOverride ?? ethers.parseUnits(stakeValue, 18);
 
   if (!connectedAddress) {
     latestBorrowQuoteWei = 0n;
@@ -997,6 +1095,7 @@ async function updateBorrowEstimate() {
     minBorrow.textContent = "-- BNB";
     const walletAvailable = document.getElementById("wallet-available");
     if (walletAvailable) walletAvailable.textContent = "";
+    setBorrowEstimateStatus();
     await syncBorrowActionLabel();
     return;
   }
@@ -1009,10 +1108,16 @@ async function updateBorrowEstimate() {
       if (contracts) {
         latestBorrowQuoteWei = await contracts.kinko.quoteBorrow(collateralAmount);
         estimate = Number(ethers.formatEther(latestBorrowQuoteWei));
+        setBorrowEstimateStatus();
       }
-    } catch {
+    } catch (error) {
       estimate = 0;
       latestBorrowQuoteWei = 0n;
+      const fallbackMessage = humanizeContractError(error, "borrow");
+      const localHint = /could not coalesce/i.test(extractErrorText(error))
+        ? await diagnoseLocalChainIssue()
+        : null;
+      setBorrowEstimateStatus(localHint || fallbackMessage, "warn");
     }
   } else {
     const treasuryBnb = 482.36;
@@ -1020,6 +1125,7 @@ async function updateBorrowEstimate() {
     const effectiveSupply = 998_000_000;
     estimate = (Number(stakeValue) / effectiveSupply) * (treasuryBnb * rho);
     latestBorrowQuoteWei = ethers.parseEther(estimate.toFixed(18));
+    setBorrowEstimateStatus();
   }
 
   const protectedAmountWei = (latestBorrowQuoteWei * BigInt(minRatioBps)) / 10000n;
@@ -1039,7 +1145,8 @@ function setBorrowStep(stepIndex) {
 }
 
 function getCollateralAmountWei() {
-  return ethers.parseUnits(normalizeTokenInput(stakeInput.value), 18);
+  syncExactStakeOverride();
+  return exactStakeWeiOverride ?? ethers.parseUnits(normalizeTokenInput(stakeInput.value), 18);
 }
 
 async function syncBorrowActionLabel() {
@@ -1105,6 +1212,23 @@ function normalizeTokenInput(value) {
   if (!normalized || normalized === ".") return "0";
   if (!/^\d*(\.\d*)?$/.test(normalized)) return "0";
   return normalized;
+}
+
+function syncExactStakeOverride() {
+  if (!stakeInput) {
+    exactStakeWeiOverride = null;
+    return;
+  }
+
+  const normalizedValue = normalizeTokenInput(stakeInput.value);
+  const normalizedMax = normalizeTokenInput(getMaxStakeValue());
+
+  if (latestWalletBaburuBalance > 0n && normalizedValue === normalizedMax) {
+    exactStakeWeiOverride = latestWalletBaburuBalance;
+    return;
+  }
+
+  exactStakeWeiOverride = null;
 }
 
 function formatTokenInputValue(rawValue, maximumFractionDigits = 4) {
@@ -1362,7 +1486,7 @@ async function loadWalletBalances() {
       walletAvailable.textContent = `${t("walletAvailable").split(":")[0]}: ${formatWalletTokenAmount(latestWalletBaburuBalance)}`;
     }
     if (stakeInput) {
-      stakeInput.min = "10000";
+      stakeInput.min = "0";
       stakeInput.step = "0.0001";
       stakeInput.max = ethers.formatUnits(latestWalletBaburuBalance, 18);
       if (getCollateralAmountWei() > latestWalletBaburuBalance && latestWalletBaburuBalance > 0n) {
@@ -1372,6 +1496,19 @@ async function loadWalletBalances() {
   } catch {
     latestWalletBaburuBalance = 0n;
   }
+}
+
+function getMaxStakeValue() {
+  if (latestWalletBaburuBalance > 0n) {
+    return ethers.formatUnits(latestWalletBaburuBalance, 18);
+  }
+
+  if (stakeInput) {
+    const fallbackMax = normalizeTokenInput(stakeInput.max);
+    if (Number(fallbackMax) > 0) return fallbackMax;
+  }
+
+  return "0";
 }
 
 function renderWalletLockedLoansState() {
@@ -1390,6 +1527,7 @@ function renderWalletLockedLoansState() {
 }
 
 async function loadBorrowerLoans() {
+  const requestId = ++borrowerLoansRequestId;
   if (!connectedAddress || !APP_CONFIG.kinkoAddress || !loanList) {
     renderWalletLockedLoansState();
     return;
@@ -1399,6 +1537,7 @@ async function loadBorrowerLoans() {
     const contracts = getReadContracts();
     if (!contracts) return;
     const views = await contracts.kinko.getBorrowerOrderViews(connectedAddress);
+    if (requestId !== borrowerLoansRequestId) return;
 
     if (!views.length) {
       loanList.innerHTML = `
@@ -1421,8 +1560,13 @@ async function loadBorrowerLoans() {
     if (confirmRepaymentButton) confirmRepaymentButton.disabled = false;
     renderLoanCards();
     applyLoanFilter(activeLoanFilter);
-  } catch {
-    renderWalletLockedLoansState();
+  } catch (error) {
+    if (requestId !== borrowerLoansRequestId) return;
+    if (!connectedAddress) {
+      renderWalletLockedLoansState();
+      return;
+    }
+    console.warn("loadBorrowerLoans failed, preserving current rendered loans:", error);
   }
 }
 
@@ -1578,6 +1722,7 @@ function setLanguage(lang) {
 
 async function hydrateWalletState() {
   const lastWalletLabel = localStorage.getItem(LAST_WALLET_LABEL_KEY);
+  const lastConnectedAddress = localStorage.getItem(LAST_CONNECTED_ADDRESS_KEY);
 
   if (lastWalletLabel) {
     try {
@@ -1605,8 +1750,15 @@ async function hydrateWalletState() {
     browserProvider = undefined;
   }
 
+  if (!connectedAddress && canRestoreLocalDevSession(lastConnectedAddress)) {
+    connectedAddress = lastConnectedAddress;
+    connectedWallet = null;
+    browserProvider = undefined;
+  }
+
   renderWalletButton();
   if (connectedAddress) {
+    localStorage.setItem(LAST_CONNECTED_ADDRESS_KEY, connectedAddress);
     await Promise.all([loadWalletBalances(), loadBorrowerLoans()]);
     setActionStatus(borrowStatus, "borrowReadyHint", "idle");
     setActionStatus(repayStatus, "repayReadyHint", "idle");
@@ -1639,6 +1791,7 @@ async function connectWallet() {
   if (connectedWallet?.label) {
     await onboard.disconnectWallet({ label: connectedWallet.label });
     localStorage.removeItem(LAST_WALLET_LABEL_KEY);
+    localStorage.removeItem(LAST_CONNECTED_ADDRESS_KEY);
     connectedWallet = null;
     connectedAddress = "";
     browserProvider = undefined;
@@ -1660,6 +1813,9 @@ async function connectWallet() {
     walletSigner = null;
     if (connectedWallet?.label) {
       localStorage.setItem(LAST_WALLET_LABEL_KEY, connectedWallet.label);
+    }
+    if (connectedAddress) {
+      localStorage.setItem(LAST_CONNECTED_ADDRESS_KEY, connectedAddress);
     }
   } catch {
     connectedAddress = "";
@@ -1720,7 +1876,7 @@ function animateCounters() {
     const endValue = Number(counter.dataset.value);
     if (!Number.isFinite(endValue)) return;
     const decimals = endValue % 1 === 0 ? 0 : 2;
-    const duration = prefersReducedMotion ? 0 : 1400;
+    const duration = prefersReducedMotion ? 0 : 1800;
     const start = performance.now();
 
     function frame(now) {
@@ -1730,7 +1886,7 @@ function animateCounters() {
       }
 
       const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 4);
+      const eased = 1 - Math.pow(1 - progress, 5);
       const current = endValue * eased;
       counter.textContent = formatNumber(current, decimals);
 
@@ -1845,12 +2001,9 @@ function setupBannerClose() {
 function setupBorrowActions() {
   maxStakeButton?.addEventListener("click", () => {
     if (!stakeInput) return;
-    if (latestWalletBaburuBalance > 0n) {
-      stakeInput.value = ethers.formatUnits(latestWalletBaburuBalance, 18);
-    } else {
-      stakeInput.value = "0";
-    }
-    updateBorrowEstimate();
+    stakeInput.value = getMaxStakeValue();
+    exactStakeWeiOverride = latestWalletBaburuBalance > 0n ? latestWalletBaburuBalance : null;
+    stakeInput.dispatchEvent(new Event("input", { bubbles: true }));
     setBorrowStep(0);
   });
 
@@ -1922,7 +2075,11 @@ function setupBorrowActions() {
       });
     } catch (error) {
       console.error("Borrow flow failed:", error);
-      setActionMessage(borrowStatus, humanizeContractError(error, "borrow"), "error");
+      const fallbackMessage = humanizeContractError(error, "borrow");
+      const localHint = /could not coalesce/i.test(extractErrorText(error))
+        ? await diagnoseLocalChainIssue()
+        : null;
+      setActionMessage(borrowStatus, localHint || fallbackMessage, "error");
     } finally {
       borrowActionButton.disabled = false;
       await syncBorrowActionLabel();
@@ -2003,7 +2160,11 @@ function setupRepayActions() {
       });
     } catch (error) {
       console.error("Repay flow failed:", error);
-      setActionMessage(repayStatus, humanizeContractError(error, "repay"), "error");
+      const fallbackMessage = humanizeContractError(error, "repay");
+      const localHint = /could not coalesce/i.test(extractErrorText(error))
+        ? await diagnoseLocalChainIssue()
+        : null;
+      setActionMessage(repayStatus, localHint || fallbackMessage, "error");
     } finally {
       confirmRepaymentButton.disabled = false;
     }
@@ -2038,7 +2199,11 @@ function setupPublicLiquidation() {
       setActionMessage(repayStatus, t("liquidationSuccess"), "success");
     } catch (error) {
       console.error("Public liquidation failed:", error);
-      setActionMessage(repayStatus, humanizeContractError(error, "repay") || t("liquidationFailed"), "error");
+      const fallbackMessage = humanizeContractError(error, "repay") || t("liquidationFailed");
+      const localHint = /could not coalesce/i.test(extractErrorText(error))
+        ? await diagnoseLocalChainIssue()
+        : null;
+      setActionMessage(repayStatus, localHint || fallbackMessage, "error");
     } finally {
       publicLiquidationButton.disabled = false;
     }
@@ -2049,14 +2214,31 @@ function setupWalletButton() {
   walletButton?.addEventListener("click", connectWallet);
 
   onboard.state.select("wallets").subscribe(async (wallets) => {
-    connectedWallet = wallets?.[0] || null;
-    connectedAddress = connectedWallet?.accounts?.[0]?.address || "";
+    const nextWallet = wallets?.[0] || null;
+    const nextAddress = nextWallet?.accounts?.[0]?.address || "";
+    const persistedAddress = localStorage.getItem(LAST_CONNECTED_ADDRESS_KEY);
+
+    connectedWallet = nextWallet;
+    connectedAddress = nextAddress;
     browserProvider = connectedWallet ? new ethers.BrowserProvider(connectedWallet.provider, "any") : undefined;
     walletSigner = null;
+
+    if (!connectedAddress && canRestoreLocalDevSession(persistedAddress)) {
+      connectedWallet = null;
+      connectedAddress = persistedAddress;
+      browserProvider = undefined;
+    }
+
     if (connectedWallet?.label) {
       localStorage.setItem(LAST_WALLET_LABEL_KEY, connectedWallet.label);
+      if (connectedAddress) {
+        localStorage.setItem(LAST_CONNECTED_ADDRESS_KEY, connectedAddress);
+      }
     } else {
       localStorage.removeItem(LAST_WALLET_LABEL_KEY);
+      if (!canRestoreLocalDevSession(localStorage.getItem(LAST_CONNECTED_ADDRESS_KEY))) {
+        localStorage.removeItem(LAST_CONNECTED_ADDRESS_KEY);
+      }
     }
     renderWalletButton();
     await Promise.all([loadWalletBalances(), loadBorrowerLoans(), updateBorrowEstimate()]);

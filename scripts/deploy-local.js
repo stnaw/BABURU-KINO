@@ -5,6 +5,7 @@ import hre from "hardhat";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const LOCAL_BORROWER_PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 async function main() {
   const [deployer, borrower] = await hre.ethers.getSigners();
@@ -17,11 +18,6 @@ async function main() {
   const kinko = await BaburuKinko.deploy(await baburu.getAddress());
   await kinko.waitForDeployment();
 
-  await deployer.sendTransaction({
-    to: await kinko.getAddress(),
-    value: hre.ethers.parseEther("500"),
-  });
-
   await baburu.transfer(borrower.address, hre.ethers.parseEther("5000000"));
 
   const configPath = path.join(__dirname, "..", "frontend", "config.js");
@@ -31,6 +27,8 @@ async function main() {
   buyUrl: "#",
   baburuTokenAddress: "${await baburu.getAddress()}",
   kinkoAddress: "${await kinko.getAddress()}",
+  localDevSignerAddress: "${borrower.address}",
+  localDevPrivateKey: "${LOCAL_BORROWER_PRIVATE_KEY}",
   nowTs: "${new Date().toISOString()}"
 };
 `;

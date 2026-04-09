@@ -1303,7 +1303,7 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metric-card.is-updating > strong {
-  animation: metric-pulse 420ms var(--ease-out-quart);
+  animation: metric-pulse 760ms var(--ease-out-quint);
 }
 
 .metric-card > strong,
@@ -1996,6 +1996,23 @@ input[type="range"] {
   font-size: 0.94rem;
 }
 
+.borrow-estimate-status {
+  display: block;
+  min-height: 1.1rem;
+  margin-top: 0.1rem;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.borrow-estimate-status[data-tone="warn"] {
+  color: #9a6135;
+}
+
+.borrow-estimate-status[data-tone="error"] {
+  color: #a35353;
+}
+
 .cta-row {
   display: flex;
   justify-content: flex-start;
@@ -2284,13 +2301,20 @@ input[type="range"] {
   position: absolute;
   top: 0;
   right: 0;
-  display: grid;
-  justify-items: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  text-align: right;
   gap: 0.36rem;
-  width: auto;
+  width: max-content;
   max-width: calc(100% - 10rem);
   z-index: 6;
   pointer-events: auto;
+}
+
+.loan-corner-badges > * {
+  align-self: flex-end;
 }
 
 .loan-body {
@@ -2487,8 +2511,9 @@ html[lang="zh-CN"] .faq-list summary {
 .loan-corner-badges .status-pill,
 .loan-corner-badges .loan-fee-chip,
 .loan-corner-badges .loan-fee-with-help {
-  width: auto;
+  width: fit-content;
   max-width: 100%;
+  margin-left: auto;
 }
 
 .loan-corner-badges .status-pill,
@@ -2696,7 +2721,7 @@ html[lang="zh-CN"] .faq-list summary {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 720px) {
   .topbar {
     grid-template-columns: 1fr;
     border-radius: 28px;
@@ -3010,6 +3035,8 @@ html[lang="zh-CN"] .faq-list summary {
     padding: 0;
     border-radius: 0;
     justify-content: flex-start;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .flow-step {
@@ -3091,7 +3118,14 @@ html[lang="zh-CN"] .faq-list summary {
     z-index: 2;
   }
 
-  .borrow-machine-top,
+  .borrow-machine-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
   .borrow-machine-actions {
     display: grid;
     gap: 10px;
@@ -3132,9 +3166,11 @@ html[lang="zh-CN"] .faq-list summary {
   }
 
   .borrow-footnote-inline {
-    margin-left: 0;
+    margin-left: auto;
+    flex: 0 0 auto;
     padding: 0.24rem 0.58rem;
     font-size: 0.62rem;
+    white-space: nowrap;
   }
 
   .metric-card-actions {
@@ -3196,6 +3232,10 @@ html[lang="zh-CN"] .faq-list summary {
     width: 100%;
   }
 
+  .borrow-machine-actions .cta-row {
+    grid-template-columns: 1fr;
+  }
+
   .cta-row .primary-button,
   .cta-row .secondary-button {
     width: 100%;
@@ -3209,6 +3249,36 @@ html[lang="zh-CN"] .faq-list summary {
 
   .timeline-ribbon {
     gap: 12px;
+  }
+
+  .loan-toolbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .filter-row {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .filter-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-chip,
+  .select-all-button {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 0.72rem;
+    white-space: nowrap;
   }
 
   .timeline-ribbon-triple,
@@ -3275,10 +3345,23 @@ html[lang="zh-CN"] .faq-list summary {
     position: static;
     display: flex;
     flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
     width: auto;
     max-width: 100%;
-    justify-content: flex-start;
+    justify-content: flex-end;
     gap: 6px;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .loan-corner-badges .loan-fee-chip,
+  .loan-corner-badges .loan-fee-with-help {
+    order: 1;
+  }
+
+  .loan-corner-badges .status-pill {
+    order: 2;
   }
 
   .loan-meta span,
@@ -3422,9 +3505,9 @@ html[lang="zh-CN"] .faq-list summary {
     transform: translateY(0) scale(1);
     filter: saturate(1);
   }
-  40% {
-    transform: translateY(-1px) scale(1.02);
-    filter: saturate(1.08);
+  45% {
+    transform: translateY(-0.5px) scale(1.008);
+    filter: saturate(1.03);
   }
   100% {
     transform: translateY(0) scale(1);

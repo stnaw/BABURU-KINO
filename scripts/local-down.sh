@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_DIR="$ROOT_DIR/.local/dev"
 HARDHAT_PID_FILE="$STATE_DIR/hardhat.pid"
 VITE_PID_FILE="$STATE_DIR/vite.pid"
+TAX_SIM_PID_FILE="$STATE_DIR/tax-sim.pid"
+LOAN_SIM_PID_FILE="$STATE_DIR/loan-sim.pid"
 
 stop_pid_file() {
   local pid_file="$1"
@@ -46,6 +48,8 @@ stop_port() {
 
 stop_pid_file "$HARDHAT_PID_FILE" "Hardhat node"
 stop_pid_file "$VITE_PID_FILE" "Vite dev server"
+stop_pid_file "$TAX_SIM_PID_FILE" "tax simulation daemon"
+stop_pid_file "$LOAN_SIM_PID_FILE" "loan simulation daemon"
 stop_port 8545 "local chain"
 stop_port 4173 "frontend dev server"
 

@@ -240,7 +240,7 @@
                     <button class="ghost-button small" id="max-stake-button" type="button">MAX</button>
                   </span>
                   <div class="field-shell">
-                    <input id="stake-input" type="range" min="10000" max="5000000" step="0.0001" value="1000000" />
+                    <input id="stake-input" type="range" min="0" max="5000000" step="0.0001" value="1000000" />
                     <div class="range-meta">
                       <strong id="stake-display">-- BABURU</strong>
                       <small id="wallet-available" data-i18n="connectWallet"></small>
@@ -284,6 +284,8 @@
                     <strong id="min-borrow">-- BNB</strong>
                   </div>
                 </div>
+
+                <small class="borrow-estimate-status" id="borrow-status" hidden></small>
 
                 <div class="borrow-machine-actions">
                   <div class="cta-row">

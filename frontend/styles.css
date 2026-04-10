@@ -312,6 +312,18 @@ html[lang="zh-CN"] .faq-list summary {
   align-items: center;
 }
 
+.icon-button {
+  min-width: 42px;
+  padding: 0;
+  aspect-ratio: 1 / 1;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.icon-button[hidden] {
+  display: none !important;
+}
+
 .debug-strip {
   margin-top: 18px;
   display: flex;
@@ -611,6 +623,146 @@ html[lang="zh-CN"] .filter-chip {
 
 .section {
   margin-top: 34px;
+}
+
+.developer-panel {
+  width: min(calc(100% - 32px), var(--max-width));
+  margin: 12px auto 0;
+}
+
+.developer-panel-shell {
+  padding: 18px 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(127, 87, 111, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(255, 252, 247, 0.78)),
+    linear-gradient(180deg, rgba(255, 214, 192, 0.14), rgba(215, 240, 229, 0.08));
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.developer-panel[hidden] {
+  display: none !important;
+}
+
+.developer-panel.is-open {
+  animation: developer-panel-enter 320ms var(--ease-out-quint);
+}
+
+.developer-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.developer-panel-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.developer-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.1);
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.developer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.developer-card {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
+}
+
+.developer-card-wide {
+  grid-column: span 2;
+}
+
+.developer-card-label {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.developer-card strong {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.developer-inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.developer-inline-form-wide {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.developer-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.developer-field span {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.developer-field input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.12);
+  color: var(--ink);
+}
+
+.developer-field-wide {
+  grid-column: 1 / 2;
+}
+
+.developer-card-actions {
+  width: 100%;
+}
+
+@keyframes developer-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hero.section {
@@ -1301,11 +1453,11 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metric-card {
-  min-height: 164px;
+  min-height: 152px;
   display: grid;
   grid-template-rows: auto 1fr;
   align-content: start;
-  gap: 18px;
+  gap: 14px;
   isolation: isolate;
   transition:
     transform var(--transition),
@@ -1421,28 +1573,34 @@ html[lang="zh-CN"] .hero-description {
 .metric-stack-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: end;
   gap: 10px;
   min-width: 0;
   min-height: 2.5rem;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(127, 87, 111, 0.12);
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(127, 87, 111, 0.12);
 }
 
 .metric-stack-row span {
+  display: inline-flex;
+  align-items: flex-end;
+  align-self: end;
   color: color-mix(in oklch, var(--ink-soft) 82%, white);
   font-size: 0.69rem;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1;
   white-space: nowrap;
 }
 
 .metric-stack-row strong {
+  display: inline-flex;
+  align-items: flex-end;
+  align-self: end;
   margin: 0;
   color: var(--ink);
   font-size: 0.98rem;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
   letter-spacing: -0.02em;
   white-space: nowrap;
   font-variant-numeric: tabular-nums lining-nums;
@@ -1464,20 +1622,20 @@ html[lang="zh-CN"] .hero-description {
 
 .metric-card-actions {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 12px;
+  right: 12px;
   z-index: 2;
 }
 
 .metric-action-button {
-  min-height: 2rem;
-  padding: 0.3rem 0.72rem;
+  min-height: 1.85rem;
+  padding: 0.24rem 0.64rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.76);
   box-shadow:
     inset 0 0 0 1px rgba(127, 87, 111, 0.1),
     0 10px 20px rgba(205, 161, 185, 0.08);
-  font-size: 0.72rem;
+  font-size: 0.69rem;
   font-weight: 800;
   color: var(--ink-soft);
   backdrop-filter: blur(10px);
@@ -1486,14 +1644,20 @@ html[lang="zh-CN"] .hero-description {
 .metrics-grid .metric-card-heat {
   grid-column: span 1;
   display: grid;
+  grid-template-rows: auto minmax(3.6rem, auto) auto;
+  align-content: start;
+}
+
+.metric-card-reserve {
+  grid-template-rows: auto minmax(3.6rem, auto) auto;
   align-content: start;
 }
 
 .metric-card-heat .metric-stack-inline {
-  align-self: start;
+  align-self: end;
   width: 100%;
-  margin-top: 10px;
-  min-height: 5.6rem;
+  margin-top: 2px;
+  min-height: 4.6rem;
   position: relative;
   z-index: 2;
 }
@@ -1502,15 +1666,35 @@ html[lang="zh-CN"] .hero-description {
   align-self: start;
   width: 100%;
   max-width: none;
-  margin-top: 10px;
-  min-height: 5.6rem;
+  margin-top: 6px;
+  min-height: 4.6rem;
   position: relative;
   z-index: 2;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: start;
+}
+
+.metric-card-reserve > strong,
+.metric-card-heat > strong {
+  grid-row: 2;
+  align-self: end;
+}
+
+.metric-card-reserve .metric-stack-inline,
+.metric-card-heat .metric-stack-inline {
+  grid-row: 3;
 }
 
 .metric-card-reserve .metric-stack-inline-wide {
   width: 100%;
   max-width: none;
+}
+
+.metric-card-reserve .metric-stack-inline::after {
+  content: "";
+  display: block;
+  min-height: 2.5rem;
 }
 
 .metric-card-reserve .metric-stack-row {
@@ -1527,7 +1711,7 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .metric-stack-inline .metric-stack-row {
-  padding-top: 10px;
+  padding-bottom: 8px;
 }
 
 .metric-stack-inline .metric-stack-row span {

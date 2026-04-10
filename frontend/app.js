@@ -29,6 +29,7 @@ const ERC20_ABI = [
 
 const KINKO_ABI = [
   "function borrowPaused() view returns (bool)",
+  "function owner() view returns (address)",
   "function rhoBps() view returns (uint256)",
   "function activeOrderCount() view returns (uint256)",
   "function activeCollateral() view returns (uint256)",
@@ -41,6 +42,10 @@ const KINKO_ABI = [
   "function repay(uint256[] orderIds) payable returns (uint256 totalPenalty)",
   "function liquidate(uint256[] orderIds)",
   "function liquidateOverdue(uint256 maxCount) returns (uint256 processedCount,uint256 burnedCollateral)",
+  "function setBorrowPaused(bool paused)",
+  "function setRhoBps(uint256 newRhoBps)",
+  "function setBlacklist(address account,bool blacklisted)",
+  "function transferOwnership(address newOwner)",
 ];
 
 const translations = {
@@ -76,6 +81,34 @@ const translations = {
     metricMarketNote: "BABURU",
     metricSlippageNote: "单笔可借比例",
     publicLiquidation: "整理金库",
+    developerPanelLabel: "开发者面板",
+    developerPanelTitle: "金库开发者入口",
+    developerOwnerChip: ({ owner }) => `Owner ${owner}`,
+    developerRhoChip: ({ rho }) => `ρ ${rho}`,
+    developerBorrowLabel: "借款开关",
+    developerBorrowOpen: "当前开放借款",
+    developerBorrowPaused: "当前暂停借款",
+    developerPauseBorrow: "暂停借款",
+    developerResumeBorrow: "恢复借款",
+    developerRhoLabel: "借款比例",
+    developerRhoInputLabel: "新的 ρ（%）",
+    developerUpdateRho: "更新 ρ",
+    developerBlacklistLabel: "黑名单管理",
+    developerBlacklistTitle: "增减黑名单地址",
+    developerAddressLabel: "钱包地址",
+    developerBlacklistAdd: "加入黑名单",
+    developerBlacklistRemove: "移出黑名单",
+    developerOwnerLabel: "Owner 管理",
+    developerOwnerTitle: "转移合约 Owner",
+    developerNewOwnerLabel: "新的 Owner 地址",
+    developerTransferOwner: "转移 Owner",
+    developerOwnerOnlyHint: "当前连接钱包不是合约 Owner",
+    developerActionBusy: "正在提交开发者操作，请在钱包中确认。",
+    developerPauseBorrowSuccess: "借款开关已更新",
+    developerRhoSuccess: "ρ 已更新",
+    developerBlacklistAddSuccess: "地址已加入黑名单",
+    developerBlacklistRemoveSuccess: "地址已移出黑名单",
+    developerTransferOwnerSuccess: "Owner 已转移",
     borrowTitle: "免息借出 BNB",
     tabEstimate: "免息借出 BNB",
     tabApprove: "钱包确认",
@@ -249,6 +282,34 @@ const translations = {
     metricMarketNote: "BABURU",
     metricSlippageNote: "Single-Loan Ratio",
     publicLiquidation: "Vault Cleanup",
+    developerPanelLabel: "Developer Panel",
+    developerPanelTitle: "Vault Owner Controls",
+    developerOwnerChip: ({ owner }) => `Owner ${owner}`,
+    developerRhoChip: ({ rho }) => `ρ ${rho}`,
+    developerBorrowLabel: "Borrow Toggle",
+    developerBorrowOpen: "Borrowing is open",
+    developerBorrowPaused: "Borrowing is paused",
+    developerPauseBorrow: "Pause Borrow",
+    developerResumeBorrow: "Resume Borrow",
+    developerRhoLabel: "Borrow Ratio",
+    developerRhoInputLabel: "New ρ (%)",
+    developerUpdateRho: "Update ρ",
+    developerBlacklistLabel: "Blacklist Control",
+    developerBlacklistTitle: "Add or remove blacklist addresses",
+    developerAddressLabel: "Wallet address",
+    developerBlacklistAdd: "Add to Blacklist",
+    developerBlacklistRemove: "Remove from Blacklist",
+    developerOwnerLabel: "Owner Control",
+    developerOwnerTitle: "Transfer contract ownership",
+    developerNewOwnerLabel: "New owner address",
+    developerTransferOwner: "Transfer Owner",
+    developerOwnerOnlyHint: "The connected wallet is not the contract owner",
+    developerActionBusy: "Submitting owner action. Please confirm in your wallet.",
+    developerPauseBorrowSuccess: "Borrow toggle updated",
+    developerRhoSuccess: "ρ updated",
+    developerBlacklistAddSuccess: "Address added to blacklist",
+    developerBlacklistRemoveSuccess: "Address removed from blacklist",
+    developerTransferOwnerSuccess: "Owner transferred",
     borrowTitle: "Borrow Interest-Free BNB",
     tabEstimate: "Borrow Interest-Free BNB",
     tabApprove: "Confirm Wallet",
@@ -411,6 +472,9 @@ let vaultClockTimer = null;
 let borrowPanelActive = false;
 let nextVaultRefreshAt = Date.now() + VAULT_REFRESH_INTERVAL_MS;
 let borrowerLoansRequestId = 0;
+let vaultOwnerAddress = "";
+let isVaultOwner = false;
+let developerPanelOpen = false;
 
 const injected = injectedModule();
 const onboard = Onboard({
@@ -491,7 +555,22 @@ const liquidatableCollateralMetric = document.getElementById("liquidatable-colla
 const activeLoansMetric = document.getElementById("active-loans-metric");
 const singleLoanRatioMetric = document.getElementById("single-loan-ratio-metric");
 const publicLiquidationButton = document.getElementById("public-liquidation-button");
+const developerPanelToggle = document.getElementById("developer-panel-toggle");
+const developerPanel = document.getElementById("developer-panel");
+const developerOwnerChip = document.getElementById("developer-owner-chip");
+const developerRhoChip = document.getElementById("developer-rho-chip");
+const developerBorrowState = document.getElementById("developer-borrow-state");
+const developerBorrowToggle = document.getElementById("developer-borrow-toggle");
+const developerRhoDisplay = document.getElementById("developer-rho-display");
+const developerRhoInput = document.getElementById("developer-rho-input");
+const developerRhoSubmit = document.getElementById("developer-rho-submit");
+const developerBlacklistAddress = document.getElementById("developer-blacklist-address");
+const developerBlacklistAdd = document.getElementById("developer-blacklist-add");
+const developerBlacklistRemove = document.getElementById("developer-blacklist-remove");
+const developerOwnerAddress = document.getElementById("developer-owner-address");
+const developerOwnerSubmit = document.getElementById("developer-owner-submit");
 const metricAnimationState = new WeakMap();
+const borrowEstimateAnimationState = new WeakMap();
 let activeLoanFilter = "all";
 let toastHideTimer = null;
 const SUBSCRIPT_DIGITS = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉" };
@@ -605,6 +684,47 @@ function animateMetricNumber(node, nextValue, { maximumFractionDigits = 0, suffi
     }
 
     metricAnimationState.set(node, targetValue);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+function renderBorrowEstimateDisplay(node, value, { suffix = "" } = {}) {
+  if (!node) return;
+  const plainText = Number.isFinite(value) ? `${formatBnbValue(value)}${suffix}` : `--${suffix}`;
+  node.textContent = plainText;
+  node.setAttribute("aria-label", plainText);
+  node.setAttribute("title", plainText);
+}
+
+function animateBorrowEstimateNumber(node, nextValue, { suffix = "" } = {}) {
+  if (!node || !Number.isFinite(nextValue)) return;
+
+  const previous = borrowEstimateAnimationState.get(node) ?? nextValue;
+  const startValue = Number(previous);
+  const targetValue = Number(nextValue);
+
+  if (!Number.isFinite(startValue) || Math.abs(targetValue - startValue) < 0.000001 || prefersReducedMotion) {
+    renderBorrowEstimateDisplay(node, targetValue, { suffix });
+    borrowEstimateAnimationState.set(node, targetValue);
+    return;
+  }
+
+  const duration = 860;
+  const startAt = performance.now();
+
+  function frame(now) {
+    const progress = Math.min((now - startAt) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 5);
+    const currentValue = startValue + (targetValue - startValue) * eased;
+    renderBorrowEstimateDisplay(node, currentValue, { suffix });
+
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+      return;
+    }
+
+    borrowEstimateAnimationState.set(node, targetValue);
   }
 
   requestAnimationFrame(frame);
@@ -1020,12 +1140,17 @@ function applyTranslations() {
   });
   if (langToggle) langToggle.textContent = currentLang === "zh" ? "EN" : "中";
   renderBanner();
+  renderDeveloperPanelCopy();
   renderLoanCards();
 }
 
 function shortenAddress(address = "") {
   if (!address || address.length < 10) return address || "--";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function formatOwnerChipAddress(address = "") {
+  return address ? shortenAddress(address) : "--";
 }
 
 function renderWalletButton() {
@@ -1089,6 +1214,45 @@ function renderBanner() {
   bannerText.hidden = false;
 }
 
+function renderDeveloperPanel() {
+  if (!developerPanelToggle || !developerPanel) return;
+
+  developerPanelToggle.hidden = !isVaultOwner;
+  developerPanelToggle.setAttribute("aria-expanded", String(isVaultOwner && developerPanelOpen));
+
+  if (!isVaultOwner) {
+    developerPanel.hidden = true;
+    developerPanel.classList.remove("is-open");
+    developerPanelOpen = false;
+    return;
+  }
+
+  developerPanel.hidden = !developerPanelOpen;
+  developerPanel.classList.toggle("is-open", developerPanelOpen);
+}
+
+function renderDeveloperPanelCopy() {
+  if (developerOwnerChip) {
+    developerOwnerChip.textContent = t("developerOwnerChip", {
+      owner: formatOwnerChipAddress(vaultOwnerAddress),
+    });
+  }
+
+  if (developerRhoChip) {
+    developerRhoChip.textContent = t("developerRhoChip", {
+      rho: developerRhoDisplay?.textContent || "--",
+    });
+  }
+
+  if (developerBorrowState) {
+    developerBorrowState.textContent = t(bannerState === "paused" ? "developerBorrowPaused" : "developerBorrowOpen");
+  }
+
+  if (developerBorrowToggle) {
+    developerBorrowToggle.textContent = t(bannerState === "paused" ? "developerResumeBorrow" : "developerPauseBorrow");
+  }
+}
+
 function createBubbles() {
   if (prefersReducedMotion) return;
 
@@ -1108,7 +1272,7 @@ function createBubbles() {
   }
 }
 
-async function updateBorrowEstimate() {
+async function updateBorrowEstimate({ animateOnRefresh = false } = {}) {
   const stakeValue = normalizeTokenInput(stakeInput.value);
   const minRatioBps = Number(ratioInput.value);
   syncExactStakeOverride();
@@ -1121,6 +1285,9 @@ async function updateBorrowEstimate() {
     borrowEstimate.textContent = "--";
     refBorrow.textContent = "-- BNB";
     minBorrow.textContent = "-- BNB";
+    borrowEstimateAnimationState.set(borrowEstimate, null);
+    borrowEstimateAnimationState.set(refBorrow, null);
+    borrowEstimateAnimationState.set(minBorrow, null);
     const walletAvailable = document.getElementById("wallet-available");
     if (walletAvailable) walletAvailable.textContent = "";
     setBorrowEstimateStatus();
@@ -1160,9 +1327,20 @@ async function updateBorrowEstimate() {
 
   stakeDisplay.textContent = `${formatTokenInputValue(collateralAmount)} BABURU`;
   ratioDisplay.textContent = `${(minRatioBps / 100).toFixed(2)}%`;
-  borrowEstimate.textContent = formatBnbAmountShort(latestBorrowQuoteWei);
-  refBorrow.textContent = `${formatBnbAmountShort(latestBorrowQuoteWei)} BNB`;
-  minBorrow.textContent = `${formatBnbAmountShort(protectedAmountWei)} BNB`;
+  const estimateValue = Number(ethers.formatEther(latestBorrowQuoteWei));
+  const protectedValue = Number(ethers.formatEther(protectedAmountWei));
+  if (animateOnRefresh) {
+    animateBorrowEstimateNumber(borrowEstimate, estimateValue);
+    animateBorrowEstimateNumber(refBorrow, estimateValue, { suffix: " BNB" });
+    animateBorrowEstimateNumber(minBorrow, protectedValue, { suffix: " BNB" });
+  } else {
+    renderBorrowEstimateDisplay(borrowEstimate, estimateValue);
+    renderBorrowEstimateDisplay(refBorrow, estimateValue, { suffix: " BNB" });
+    renderBorrowEstimateDisplay(minBorrow, protectedValue, { suffix: " BNB" });
+    borrowEstimateAnimationState.set(borrowEstimate, estimateValue);
+    borrowEstimateAnimationState.set(refBorrow, estimateValue);
+    borrowEstimateAnimationState.set(minBorrow, protectedValue);
+  }
   await syncBorrowActionLabel();
 }
 
@@ -1502,6 +1680,41 @@ async function loadVaultMetrics() {
   } catch {}
 }
 
+async function refreshOwnerState() {
+  const contracts = getReadContracts();
+  if (!contracts || !APP_CONFIG.kinkoAddress) {
+    vaultOwnerAddress = "";
+    isVaultOwner = false;
+    renderDeveloperPanelCopy();
+    renderDeveloperPanel();
+    return;
+  }
+
+  try {
+    const [ownerAddress, rhoBpsValue] = await Promise.all([contracts.kinko.owner(), contracts.kinko.rhoBps()]);
+    vaultOwnerAddress = ownerAddress;
+    isVaultOwner = Boolean(
+      connectedWallet &&
+      connectedAddress &&
+      ownerAddress &&
+      connectedAddress.toLowerCase() === ownerAddress.toLowerCase()
+    );
+
+    if (developerRhoDisplay) {
+      developerRhoDisplay.textContent = `${formatNumber(Number(rhoBpsValue) / 100, 0)}%`;
+    }
+    if (developerRhoInput && document.activeElement !== developerRhoInput) {
+      developerRhoInput.value = (Number(rhoBpsValue) / 100).toString();
+    }
+  } catch {
+    vaultOwnerAddress = "";
+    isVaultOwner = false;
+  }
+
+  renderDeveloperPanelCopy();
+  renderDeveloperPanel();
+}
+
 async function loadWalletBalances() {
   if (!connectedAddress || !APP_CONFIG.baburuTokenAddress) {
     latestWalletBaburuBalance = 0n;
@@ -1796,9 +2009,11 @@ async function hydrateWalletState() {
   renderWalletButton();
   if (connectedAddress) {
     localStorage.setItem(LAST_CONNECTED_ADDRESS_KEY, connectedAddress);
-    await Promise.all([loadWalletBalances(), loadBorrowerLoans()]);
+    await Promise.all([loadWalletBalances(), loadBorrowerLoans(), refreshOwnerState()]);
     setActionStatus(borrowStatus, "borrowReadyHint", "idle");
     setActionStatus(repayStatus, "repayReadyHint", "idle");
+  } else {
+    await refreshOwnerState();
   }
   await updateDebugStrip();
   await syncBorrowActionLabel();
@@ -1835,6 +2050,7 @@ async function connectWallet() {
     walletSigner = null;
     renderWalletButton();
     await loadBorrowerLoans();
+    await refreshOwnerState();
     setActionStatus(borrowStatus, "borrowReadyHint", "idle");
     setActionStatus(repayStatus, "repayReadyHint", "idle");
     await updateDebugStrip();
@@ -1862,10 +2078,11 @@ async function connectWallet() {
 
   renderWalletButton();
   if (connectedAddress) {
-    await Promise.all([loadWalletBalances(), loadBorrowerLoans(), updateBorrowEstimate()]);
+    await Promise.all([loadWalletBalances(), loadBorrowerLoans(), updateBorrowEstimate(), refreshOwnerState()]);
     setActionStatus(borrowStatus, "borrowReadyHint", "idle");
     setActionStatus(repayStatus, "repayReadyHint", "idle");
   } else {
+    await refreshOwnerState();
     await syncBorrowActionLabel();
   }
   await updateDebugStrip();
@@ -1938,14 +2155,14 @@ async function refreshVaultReadOnlyData() {
   if (vaultRefreshInFlight) return;
   vaultRefreshInFlight = true;
   try {
-    const tasks = [loadVaultMetrics(), readBorrowPaused()];
+    const tasks = [loadVaultMetrics(), readBorrowPaused(), refreshOwnerState()];
 
     if (connectedAddress) {
       tasks.push(loadWalletBalances());
     }
 
     await Promise.all(tasks);
-    await updateBorrowEstimate();
+    await updateBorrowEstimate({ animateOnRefresh: true });
     nextVaultRefreshAt = Date.now() + VAULT_REFRESH_INTERVAL_MS;
     renderBorrowRefreshMeta();
   } finally {
@@ -2247,6 +2464,101 @@ function setupPublicLiquidation() {
   });
 }
 
+function requireOwnerAccess() {
+  if (isVaultOwner) return true;
+  showFloatingToast(t("developerOwnerOnlyHint"), "warn");
+  return false;
+}
+
+function parseRhoInputToBps() {
+  const numeric = Number(developerRhoInput?.value);
+  if (!Number.isFinite(numeric) || numeric <= 0 || numeric > 100) return null;
+  return BigInt(Math.round(numeric * 100));
+}
+
+async function runDeveloperAction(action, successKey) {
+  if (!requireOwnerAccess()) return;
+
+  const onRightNetwork = await ensureSupportedNetwork().catch(() => false);
+  if (!onRightNetwork) {
+    showFloatingToast(t("borrowStatusWrongNetwork"), "warn");
+    return;
+  }
+
+  const contracts = await getWriteContracts();
+  if (!contracts) return;
+
+  try {
+    showFloatingToast(t("developerActionBusy"), "busy");
+    const tx = await action(contracts.kinko);
+    await tx.wait();
+    await Promise.all([refreshVaultReadOnlyData(), loadBorrowerLoans(), loadWalletBalances(), updateBorrowEstimate()]);
+    showFloatingToast(t(successKey), "success");
+  } catch (error) {
+    const fallbackMessage = humanizeContractError(error, "borrow");
+    const localHint = /could not coalesce/i.test(extractErrorText(error))
+      ? await diagnoseLocalChainIssue()
+      : null;
+    showFloatingToast(localHint || fallbackMessage, "error");
+  }
+}
+
+function setupDeveloperPanel() {
+  developerPanelToggle?.addEventListener("click", () => {
+    if (!isVaultOwner) return;
+    developerPanelOpen = !developerPanelOpen;
+    renderDeveloperPanel();
+  });
+
+  developerBorrowToggle?.addEventListener("click", async () => {
+    const nextPaused = bannerState !== "paused";
+    await runDeveloperAction((kinko) => kinko.setBorrowPaused(nextPaused), "developerPauseBorrowSuccess");
+  });
+
+  developerRhoSubmit?.addEventListener("click", async () => {
+    const nextRhoBps = parseRhoInputToBps();
+    if (nextRhoBps === null) {
+      showFloatingToast(
+        currentLang === "zh" ? "请输入 0-100 之间的有效 ρ 百分比" : "Enter a valid ρ percentage between 0 and 100",
+        "warn"
+      );
+      return;
+    }
+
+    await runDeveloperAction((kinko) => kinko.setRhoBps(nextRhoBps), "developerRhoSuccess");
+  });
+
+  developerBlacklistAdd?.addEventListener("click", async () => {
+    const address = developerBlacklistAddress?.value?.trim() || "";
+    if (!ethers.isAddress(address)) {
+      showFloatingToast(currentLang === "zh" ? "请输入有效的钱包地址" : "Enter a valid wallet address", "warn");
+      return;
+    }
+
+    await runDeveloperAction((kinko) => kinko.setBlacklist(address, true), "developerBlacklistAddSuccess");
+  });
+
+  developerBlacklistRemove?.addEventListener("click", async () => {
+    const address = developerBlacklistAddress?.value?.trim() || "";
+    if (!ethers.isAddress(address)) {
+      showFloatingToast(currentLang === "zh" ? "请输入有效的钱包地址" : "Enter a valid wallet address", "warn");
+      return;
+    }
+
+    await runDeveloperAction((kinko) => kinko.setBlacklist(address, false), "developerBlacklistRemoveSuccess");
+  });
+
+  developerOwnerSubmit?.addEventListener("click", async () => {
+    const address = developerOwnerAddress?.value?.trim() || "";
+    if (!ethers.isAddress(address)) {
+      showFloatingToast(currentLang === "zh" ? "请输入有效的新 Owner 地址" : "Enter a valid new owner address", "warn");
+      return;
+    }
+
+    await runDeveloperAction((kinko) => kinko.transferOwnership(address), "developerTransferOwnerSuccess");
+  });
+}
+
 function setupWalletButton() {
   walletButton?.addEventListener("click", connectWallet);
 
@@ -2278,7 +2590,7 @@ function setupWalletButton() {
       }
     }
     renderWalletButton();
-    await Promise.all([loadWalletBalances(), loadBorrowerLoans(), updateBorrowEstimate()]);
+    await Promise.all([loadWalletBalances(), loadBorrowerLoans(), updateBorrowEstimate(), refreshOwnerState()]);
     setActionStatus(borrowStatus, "borrowReadyHint", "idle");
     setActionStatus(repayStatus, "repayReadyHint", "idle");
     await updateDebugStrip();
@@ -2317,6 +2629,7 @@ setupBorrowActions();
 setupHelpToggles();
 setupRepayActions();
 setupPublicLiquidation();
+setupDeveloperPanel();
 setupWalletButton();
 setupLoanFilters();
 setupBorrowRefreshMeta();

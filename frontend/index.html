@@ -50,9 +50,72 @@
 
       <div class="topbar-actions">
         <button class="primary-button" id="wallet-button" data-i18n="connectWallet"></button>
+        <button class="ghost-button icon-button" id="developer-panel-toggle" type="button" hidden aria-label="Developer Panel">⌘</button>
         <button class="ghost-button" id="lang-toggle" type="button"></button>
       </div>
     </header>
+
+    <section class="developer-panel" id="developer-panel" hidden>
+      <div class="developer-panel-shell">
+        <div class="panel-header developer-panel-header">
+          <div>
+            <p class="panel-label" data-i18n="developerPanelLabel"></p>
+            <h4 data-i18n="developerPanelTitle"></h4>
+          </div>
+          <div class="developer-panel-meta">
+            <span class="developer-chip" id="developer-owner-chip">Owner --</span>
+            <span class="developer-chip" id="developer-rho-chip">ρ --</span>
+          </div>
+        </div>
+
+        <div class="developer-grid">
+          <article class="developer-card">
+            <span class="developer-card-label" data-i18n="developerBorrowLabel"></span>
+            <strong id="developer-borrow-state" data-i18n="developerBorrowOpen"></strong>
+            <div class="cta-row developer-card-actions">
+              <button class="primary-button" id="developer-borrow-toggle" type="button" data-i18n="developerPauseBorrow"></button>
+            </div>
+          </article>
+
+          <article class="developer-card">
+            <span class="developer-card-label" data-i18n="developerRhoLabel"></span>
+            <strong id="developer-rho-display">70%</strong>
+            <div class="developer-inline-form">
+              <label class="developer-field">
+                <span data-i18n="developerRhoInputLabel"></span>
+                <input id="developer-rho-input" type="number" min="1" max="100" step="0.1" />
+              </label>
+              <button class="secondary-button" id="developer-rho-submit" type="button" data-i18n="developerUpdateRho"></button>
+            </div>
+          </article>
+
+          <article class="developer-card developer-card-wide">
+            <span class="developer-card-label" data-i18n="developerBlacklistLabel"></span>
+            <strong data-i18n="developerBlacklistTitle"></strong>
+            <div class="developer-inline-form developer-inline-form-wide">
+              <label class="developer-field developer-field-wide">
+                <span data-i18n="developerAddressLabel"></span>
+                <input id="developer-blacklist-address" type="text" inputmode="text" autocomplete="off" spellcheck="false" />
+              </label>
+              <button class="secondary-button" id="developer-blacklist-add" type="button" data-i18n="developerBlacklistAdd"></button>
+              <button class="ghost-button" id="developer-blacklist-remove" type="button" data-i18n="developerBlacklistRemove"></button>
+            </div>
+          </article>
+
+          <article class="developer-card developer-card-wide">
+            <span class="developer-card-label" data-i18n="developerOwnerLabel"></span>
+            <strong data-i18n="developerOwnerTitle"></strong>
+            <div class="developer-inline-form developer-inline-form-wide">
+              <label class="developer-field developer-field-wide">
+                <span data-i18n="developerNewOwnerLabel"></span>
+                <input id="developer-owner-address" type="text" inputmode="text" autocomplete="off" spellcheck="false" />
+              </label>
+              <button class="ghost-button" id="developer-owner-submit" type="button" data-i18n="developerTransferOwner"></button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
     <section class="top-status-banner" hidden>
       <span class="banner-charm" aria-hidden="true">🍬</span>

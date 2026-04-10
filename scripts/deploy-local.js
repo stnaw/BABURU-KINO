@@ -20,6 +20,8 @@ async function main() {
 
   await baburu.transfer(borrower.address, hre.ethers.parseEther("5000000"));
 
+  await kinko.transferOwnership(borrower.address);
+
   const configPath = path.join(__dirname, "..", "frontend", "config.js");
   const configSource = `window.BABURU_CONFIG = {
   chainId: 31337,

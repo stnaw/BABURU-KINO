@@ -9,7 +9,11 @@ const root = path.join(__dirname, "..", "..");
 
 const DEFAULT_SEED = Number(process.env.QA_SEED || 20260409);
 const DEFAULT_PARTICIPANT_COUNT = Number(process.env.QA_LOAN_PARTICIPANTS || 10);
-const DEFAULT_ROUNDS = Number(process.env.QA_LOAN_ROUNDS || 4);
+const DEFAULT_ROUNDS = Number(process.env.QA_LOAN_ROUNDS || 64);
+const DEFAULT_TOTAL_SIMULATION_SECONDS = Number(process.env.QA_LOAN_TOTAL_DAYS || 19) * 24 * 60 * 60;
+const EARLY_WINDOW_END = 3 * 24 * 60 * 60;
+const NORMAL_WINDOW_END = 6 * 24 * 60 * 60;
+const LIQUIDATION_TIME_SECONDS = 9 * 24 * 60 * 60;
 const TIME_STEP_OPTIONS = String(process.env.QA_LOAN_TIME_STEP_OPTIONS || "21600,43200,64800,86400")
   .split(",")
   .map((value) => Number(value.trim()))
@@ -71,10 +75,87 @@ function formatBaburu(value) {
   return hre.ethers.formatUnits(value, 18);
 }
 
+function pickUserProfiles(users, rng) {
+  return users.map((user, index) => {
+    let repaymentStyle = "normal";
+    if (index === 0) repaymentStyle = "delinquent";
+    else if (index === 1) repaymentStyle = "early";
+    else if (index === 2) repaymentStyle = "late";
+    else {
+      const draw = rng();
+      repaymentStyle = draw < 0.18 ? "early" : draw < 0.42 ? "late" : draw < 0.62 ? "delinquent" : "normal";
+    }
+    const delinquent = repaymentStyle === "delinquent";
+    return {
+      address: user.address,
+      delinquent,
+      repaymentStyle,
+      borrowBias: delinquent ? 0.84 : 0.68 + (rng() * 0.18),
+      repayBias: delinquent ? 0.04 + (rng() * 0.08) : 0.3 + (rng() * 0.42),
+    };
+  });
+}
+
+function getOrderStage(order, nowTimestamp) {
+  const elapsed = Math.max(0, nowTimestamp - Number(order.borrowedAt));
+  if (elapsed < EARLY_WINDOW_END) return "early";
+  if (elapsed < NORMAL_WINDOW_END) return "normal";
+  if (elapsed < LIQUIDATION_TIME_SECONDS) return "late";
+  return "liquidation";
+}
+
+function pickRepayTargetsByStyle(stageGroups, profile, rng) {
+  const earlyIds = stageGroups.early || [];
+  const normalIds = stageGroups.normal || [];
+  const lateIds = stageGroups.late || [];
+
+  if (profile?.repaymentStyle === "early") {
+    if (earlyIds.length && rng() < 0.82) return earlyIds;
+    if (normalIds.length && rng() < 0.45) return normalIds;
+    if (lateIds.length && rng() < 0.2) return lateIds;
+    return [];
+  }
+
+  if (profile?.repaymentStyle === "late") {
+    if (lateIds.length && rng() < 0.88) return lateIds;
+    if (normalIds.length && rng() < 0.18) return normalIds;
+    if (earlyIds.length && rng() < 0.08) return earlyIds;
+    return [];
+  }
+
+  if (profile?.repaymentStyle === "delinquent") {
+    if (lateIds.length && rng() < 0.22) return lateIds;
+    if (normalIds.length && rng() < 0.08) return normalIds;
+    if (earlyIds.length && rng() < 0.03) return earlyIds;
+    return [];
+  }
+
+  if (normalIds.length && rng() < 0.72) return normalIds;
+  if (earlyIds.length && rng() < 0.26) return earlyIds;
+  if (lateIds.length && rng() < 0.3) return lateIds;
+  return [];
+}
+
 async function ensureTokenBalance(token, deployer, account, targetBalance) {
   const currentBalance = await token.balanceOf(account);
   if (currentBalance >= targetBalance) return;
-  await (await token.connect(deployer).transfer(account, targetBalance - currentBalance)).wait();
+  const shortfall = targetBalance - currentBalance;
+  const deployerBalance = await token.balanceOf(deployer.address);
+  if (deployerBalance >= shortfall) {
+    await (await token.connect(deployer).transfer(account, shortfall)).wait();
+    return;
+  }
+
+  await (await token.connect(deployer).mint(account, shortfall)).wait();
+}
+
+async function getOwnerSigner(contract, signers) {
+  const ownerAddress = String(await contract.owner()).toLowerCase();
+  const ownerSigner = signers.find((signer) => signer.address.toLowerCase() === ownerAddress);
+  if (!ownerSigner) {
+    throw new Error(`Unable to find local signer for owner ${ownerAddress}`);
+  }
+  return ownerSigner;
 }
 
 async function getUserOrders(kinko, user) {
@@ -119,8 +200,11 @@ async function main() {
   const kinko = await hre.ethers.getContractAt("BaburuKinko", config.kinkoAddress);
   const provider = hre.ethers.provider;
   const rng = createRng(DEFAULT_SEED);
+  const ownerSigner = await getOwnerSigner(kinko, signers);
+  const userProfiles = pickUserProfiles(users, rng);
+  const userProfileByAddress = new Map(userProfiles.map((profile) => [profile.address.toLowerCase(), profile]));
 
-  await kinko.connect(deployer).setBlacklist(blacklist.address, true);
+  await kinko.connect(ownerSigner).setBlacklist(blacklist.address, true);
 
   for (const user of users) {
     const targetBalance = hre.ethers.parseUnits("5000000", 18);
@@ -136,19 +220,25 @@ async function main() {
   let borrowFail = 0;
   let repaySuccess = 0;
   let repayFail = 0;
+  let earlyRepaySuccess = 0;
+  let normalRepaySuccess = 0;
+  let lateRepaySuccess = 0;
   let liquidationCount = 0;
   const failReasons = {};
   const roundSnapshots = [];
   let totalTimeAdvancedSeconds = 0;
 
-  for (let round = 1; round <= DEFAULT_ROUNDS; round += 1) {
+  let round = 0;
+  while (round < DEFAULT_ROUNDS && totalTimeAdvancedSeconds < DEFAULT_TOTAL_SIMULATION_SECONDS) {
+    round += 1;
     for (const user of users) {
+      const profile = userProfileByAddress.get(user.address.toLowerCase());
       const existingOrders = await getUserOrders(kinko, user);
-      const openOrderCount = existingOrders.filter((order) => order.open).length;
+      const openOrderCount = existingOrders.length;
       const borrowAttempts = openOrderCount >= 3 ? (rng() < 0.3 ? 1 : 0) : rng() < 0.35 ? 2 : 1;
 
       for (let attempt = 0; attempt < borrowAttempts; attempt += 1) {
-        const shouldBorrow = openOrderCount === 0 || rng() < 0.72;
+        const shouldBorrow = openOrderCount === 0 || rng() < (profile?.borrowBias ?? 0.72);
         if (!shouldBorrow) {
           continue;
         }
@@ -174,20 +264,36 @@ async function main() {
       }
     }
 
-    const timeStepSeconds = pickTimeAdvanceSeconds(rng);
+    const remainingSeconds = DEFAULT_TOTAL_SIMULATION_SECONDS - totalTimeAdvancedSeconds;
+    const timeStepSeconds = Math.min(pickTimeAdvanceSeconds(rng), remainingSeconds);
     totalTimeAdvancedSeconds += timeStepSeconds;
     await provider.send("evm_increaseTime", [timeStepSeconds]);
     await provider.send("evm_mine", []);
+    const latestBlock = await provider.getBlock("latest");
+    const nowTimestamp = Number(latestBlock?.timestamp || 0);
 
     for (const user of users) {
+      const profile = userProfileByAddress.get(user.address.toLowerCase());
       const orders = await getUserOrders(kinko, user);
-      const repayableIds = orders.filter((order) => order.repayable).map((order) => order.orderId);
-      if (!repayableIds.length) {
+      const repayableOrders = orders.filter((order) => order.repayable);
+      if (!repayableOrders.length) {
         continue;
       }
 
-      if (rng() < 0.66) {
-        const shuffledIds = [...repayableIds].sort(() => rng() - 0.5);
+      if (rng() < (profile?.repayBias ?? 0.66)) {
+        const stageGroups = repayableOrders.reduce((groups, order) => {
+          const stage = getOrderStage(order, nowTimestamp);
+          if (stage !== "liquidation") {
+            groups[stage].push(order.orderId);
+          }
+          return groups;
+        }, { early: [], normal: [], late: [] });
+        const candidateIds = pickRepayTargetsByStyle(stageGroups, profile, rng);
+        if (!candidateIds.length) {
+          continue;
+        }
+
+        const shuffledIds = [...candidateIds].sort(() => rng() - 0.5);
         const repayCount = Math.min(
           shuffledIds.length,
           Math.max(1, Math.ceil(shuffledIds.length * (0.25 + rng() * 0.75)))
@@ -199,6 +305,9 @@ async function main() {
           if (totalBnbDue > 0n) {
             await (await kinko.connect(user).repay(chosenIds, { value: totalBnbDue })).wait();
             repaySuccess += 1;
+            if (candidateIds === stageGroups.early) earlyRepaySuccess += 1;
+            else if (candidateIds === stageGroups.late) lateRepaySuccess += 1;
+            else normalRepaySuccess += 1;
           }
         } catch (error) {
           repayFail += 1;
@@ -211,7 +320,8 @@ async function main() {
     const liquidatableSummary = await kinko.liquidatableSummary();
     const overdueCount = Number(Array.isArray(liquidatableSummary) ? liquidatableSummary[0] : liquidatableSummary.count);
     let liquidatedThisRound = 0;
-    if (overdueCount > 0 && (rng() < 0.8 || round === DEFAULT_ROUNDS)) {
+    const reachedSimulationHorizon = totalTimeAdvancedSeconds >= DEFAULT_TOTAL_SIMULATION_SECONDS;
+    if (overdueCount > 0 && (rng() < 0.8 || reachedSimulationHorizon)) {
       try {
         const batchSize = Math.max(1, Math.min(overdueCount, Math.ceil(overdueCount * (0.4 + rng() * 0.6))));
         const tx = await kinko.connect(liquidator).liquidateOverdue(batchSize);
@@ -249,7 +359,8 @@ async function main() {
     runId,
     seed: DEFAULT_SEED,
     loanWindow: {
-      rounds: DEFAULT_ROUNDS,
+      rounds: round,
+      targetSimulationDays: DEFAULT_TOTAL_SIMULATION_SECONDS / (24 * 60 * 60),
       timeAdvanceSecondsTotal: totalTimeAdvancedSeconds,
       roundSnapshots,
       participants: users.length,
@@ -271,6 +382,10 @@ async function main() {
     repay: {
       repaySuccess,
       repayFail,
+      earlyRepaySuccess,
+      normalRepaySuccess,
+      lateRepaySuccess,
+      collateralBurnPaths: earlyRepaySuccess + lateRepaySuccess,
     },
     liquidation: {
       liquidationCount,
@@ -287,6 +402,7 @@ async function main() {
         mode: "multi-user-loan-cycle",
         seed: DEFAULT_SEED,
         users: users.map((user) => user.address),
+        userProfiles,
         payload,
       },
       null,

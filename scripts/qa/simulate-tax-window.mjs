@@ -63,7 +63,23 @@ function formatEth(value) {
 async function ensureTokenBalance(token, deployer, account, targetBalance) {
   const currentBalance = await token.balanceOf(account);
   if (currentBalance >= targetBalance) return;
-  await (await token.connect(deployer).transfer(account, targetBalance - currentBalance)).wait();
+  const shortfall = targetBalance - currentBalance;
+  const deployerBalance = await token.balanceOf(deployer.address);
+  if (deployerBalance >= shortfall) {
+    await (await token.connect(deployer).transfer(account, shortfall)).wait();
+    return;
+  }
+
+  await (await token.connect(deployer).mint(account, shortfall)).wait();
+}
+
+async function getOwnerSigner(contract, signers) {
+  const ownerAddress = String(await contract.owner()).toLowerCase();
+  const ownerSigner = signers.find((signer) => signer.address.toLowerCase() === ownerAddress);
+  if (!ownerSigner) {
+    throw new Error(`Unable to find local signer for owner ${ownerAddress}`);
+  }
+  return ownerSigner;
 }
 
 function deltaPct(expected, actual) {
@@ -76,13 +92,15 @@ async function main() {
   await ensureDir(logDir);
 
   const config = await readFrontendConfig();
-  const [deployer, userA, userB, userC, userD, userE, blacklist, liquidator, governor] = await hre.ethers.getSigners();
+  const signers = await hre.ethers.getSigners();
+  const [deployer, userA, userB, userC, userD, userE, blacklist, liquidator, governor] = signers;
   const baburu = await hre.ethers.getContractAt("MockBaburu", config.baburuTokenAddress);
   const kinko = await hre.ethers.getContractAt("BaburuKinko", config.kinkoAddress);
   const provider = hre.ethers.provider;
   const rng = createRng(DEFAULT_SEED);
+  const ownerSigner = await getOwnerSigner(kinko, signers);
 
-  await kinko.connect(deployer).setBlacklist(blacklist.address, true);
+  await kinko.connect(ownerSigner).setBlacklist(blacklist.address, true);
 
   const actorAddresses = [userA, userB, userC, userD, userE].map((signer) => signer.address);
   for (const actor of actorAddresses) {

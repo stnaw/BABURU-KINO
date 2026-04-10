@@ -68,6 +68,12 @@
           </div>
         </div>
 
+        <div class="debug-strip" id="debug-strip" hidden>
+          <span class="debug-chip" id="debug-chain">Chain --</span>
+          <span class="debug-chip" id="debug-wallet">Wallet --</span>
+          <span class="debug-chip" id="debug-account">Account --</span>
+        </div>
+
         <div class="developer-grid">
           <article class="developer-card">
             <span class="developer-card-label" data-i18n="developerBorrowLabel"></span>
@@ -100,6 +106,10 @@
               <button class="secondary-button" id="developer-blacklist-add" type="button" data-i18n="developerBlacklistAdd"></button>
               <button class="ghost-button" id="developer-blacklist-remove" type="button" data-i18n="developerBlacklistRemove"></button>
             </div>
+            <div class="developer-blacklist-current">
+              <span class="developer-card-label" data-i18n="developerBlacklistCurrent"></span>
+              <ul class="blacklist-address-list" id="developer-blacklist-list"></ul>
+            </div>
           </article>
 
           <article class="developer-card developer-card-wide">
@@ -112,6 +122,13 @@
               </label>
               <button class="ghost-button" id="developer-owner-submit" type="button" data-i18n="developerTransferOwner"></button>
             </div>
+          </article>
+
+          <article class="developer-card developer-card-wide">
+            <span class="developer-card-label" data-i18n="developerLoanListLabel"></span>
+            <strong data-i18n="developerLoanListTitle"></strong>
+            <div class="developer-loan-summary" id="developer-loan-summary"></div>
+            <div class="developer-loan-list" id="developer-loan-list"></div>
           </article>
         </div>
       </div>
@@ -154,13 +171,6 @@
             <a class="primary-button" href="#borrow" data-i18n="startEstimate"></a>
             <a class="secondary-button" href="#loans" data-i18n="viewLoans"></a>
           </div>
-
-          <div class="debug-strip" id="debug-strip" hidden>
-            <span class="debug-chip" id="debug-chain">Chain --</span>
-            <span class="debug-chip" id="debug-wallet">Wallet --</span>
-            <span class="debug-chip" id="debug-account">Account --</span>
-          </div>
-
         </div>
       </section>
 
@@ -326,31 +336,34 @@
               </div>
 
               <div class="borrow-summary">
-                <div class="estimate-inline">
-                  <div class="estimate-head">
-                    <p class="estimate-eyebrow" data-i18n="estimatedBorrow"></p>
-                    <div class="borrow-refresh-meta" id="borrow-refresh-meta" hidden>
-                      <span class="borrow-refresh-ring" aria-hidden="true">
-                        <span class="borrow-refresh-ring-inner"></span>
-                      </span>
-                      <span class="borrow-refresh-copy" id="borrow-refresh-copy"></span>
-                    </div>
+                <div class="estimate-head">
+                  <p class="estimate-eyebrow" data-i18n="estimatedBorrow"></p>
+                  <div class="borrow-refresh-meta" id="borrow-refresh-meta" hidden>
+                    <span class="borrow-refresh-ring" aria-hidden="true">
+                      <span class="borrow-refresh-ring-inner"></span>
+                    </span>
+                    <span class="borrow-refresh-copy" id="borrow-refresh-copy"></span>
                   </div>
+                </div>
+
+                <div class="estimate-inline">
                   <div class="result-number"><span id="borrow-estimate">--</span> <em>BNB</em></div>
                 </div>
 
-                <div class="result-breakdown">
-                  <div>
-                    <span data-i18n="protectedFloor"></span>
-                    <strong id="min-borrow">-- BNB</strong>
+                <div class="borrow-summary-footer">
+                  <div class="result-breakdown">
+                    <div>
+                      <span data-i18n="protectedFloor"></span>
+                      <strong id="min-borrow">-- BNB</strong>
+                    </div>
                   </div>
-                </div>
 
-                <small class="borrow-estimate-status" id="borrow-status" hidden></small>
+                  <small class="borrow-estimate-status" id="borrow-status" hidden></small>
 
-                <div class="borrow-machine-actions">
-                  <div class="cta-row">
-                    <button class="primary-button large" id="borrow-action-button" type="button" data-i18n="approveAndBorrow"></button>
+                  <div class="borrow-machine-actions">
+                    <div class="cta-row">
+                      <button class="primary-button large" id="borrow-action-button" type="button" data-i18n="approveAndBorrow"></button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -448,11 +461,7 @@
           <details>
             <summary data-i18n="faqBlacklistQ"></summary>
             <p data-i18n="faqBlacklistA"></p>
-            <ul class="address-list">
-              <li data-i18n="blacklistLp"></li>
-              <li data-i18n="blacklistCustody"></li>
-              <li data-i18n="blacklistDead"></li>
-            </ul>
+            <ul class="address-list blacklist-address-list" id="faq-blacklist-list"></ul>
           </details>
         </div>
       </section>

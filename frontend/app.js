@@ -20,6 +20,7 @@ const BANNER_DISMISSED_KEY = "baburu-banner-dismissed";
 const LOCAL_BORROWER_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const VAULT_REFRESH_INTERVAL_MS = 10000;
 const MIN_FRONTEND_COLLATERAL_WEI = ethers.parseUnits("10000", 18);
+const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -31,6 +32,10 @@ const KINKO_ABI = [
   "function borrowPaused() view returns (bool)",
   "function owner() view returns (address)",
   "function rhoBps() view returns (uint256)",
+  "function blacklistCount() view returns (uint256)",
+  "function blacklistAddresses(uint256) view returns (address)",
+  "function getActiveOrderIds() view returns (uint256[])",
+  "function orderView(uint256 orderId) view returns (uint256 orderId,address borrower,uint256 collateralAmount,uint256 borrowedBnb,uint256 borrowedAt,uint256 penaltyBpsValue,uint256 penaltyAmount,bool repayable,bool liquidatable)",
   "function activeOrderCount() view returns (uint256)",
   "function activeCollateral() view returns (uint256)",
   "function liquidatableSummary() view returns (uint256 count,uint256 collateral)",
@@ -95,6 +100,7 @@ const translations = {
     developerUpdateRho: "更新 ρ",
     developerBlacklistLabel: "黑名单管理",
     developerBlacklistTitle: "增减黑名单地址",
+    developerBlacklistCurrent: "当前黑名单",
     developerAddressLabel: "钱包地址",
     developerBlacklistAdd: "加入黑名单",
     developerBlacklistRemove: "移出黑名单",
@@ -102,6 +108,14 @@ const translations = {
     developerOwnerTitle: "转移合约 Owner",
     developerNewOwnerLabel: "新的 Owner 地址",
     developerTransferOwner: "转移 Owner",
+    developerLoanListLabel: "借款总览",
+    developerLoanListTitle: "当前链上借款详情",
+    developerLoanListEmpty: "当前没有未结清借款。",
+    developerLoanSummaryTotal: "汇总",
+    developerLoanSummaryEarly: "提前期",
+    developerLoanSummaryNormal: "免罚期",
+    developerLoanSummaryGrace: "宽限期",
+    developerLoanSummaryPending: "待清算",
     developerOwnerOnlyHint: "当前连接钱包不是合约 Owner",
     developerActionBusy: "正在提交开发者操作，请在钱包中确认。",
     developerPauseBorrowSuccess: "借款开关已更新",
@@ -196,6 +210,10 @@ const translations = {
     faqTitle: "金库手册",
     faqBlacklistQ: "金库黑名单",
     faqBlacklistA: "黑名单用于统计非活跃持仓，参与可借份额分母计算，例如 LP、交易所托管地址和 0x...dead。它的作用是避免这些份额与金库内活跃质押重复扣减，不是针对普通用户的钱包封禁。",
+    blacklistSourceOnChain: "链上",
+    blacklistSourceDefault: "默认逻辑",
+    blacklistSourceBoth: "链上 + 默认逻辑",
+    blacklistDefaultDead: "默认销毁地址",
     blacklistLp: "LP: 0x6fe...c200",
     blacklistCustody: "CEX Custody: 0x194...a999",
     blacklistDead: "Dead: 0x000...dEaD",
@@ -296,6 +314,7 @@ const translations = {
     developerUpdateRho: "Update ρ",
     developerBlacklistLabel: "Blacklist Control",
     developerBlacklistTitle: "Add or remove blacklist addresses",
+    developerBlacklistCurrent: "Current blacklist",
     developerAddressLabel: "Wallet address",
     developerBlacklistAdd: "Add to Blacklist",
     developerBlacklistRemove: "Remove from Blacklist",
@@ -303,6 +322,14 @@ const translations = {
     developerOwnerTitle: "Transfer contract ownership",
     developerNewOwnerLabel: "New owner address",
     developerTransferOwner: "Transfer Owner",
+    developerLoanListLabel: "Loan Overview",
+    developerLoanListTitle: "Current on-chain loan details",
+    developerLoanListEmpty: "There are no active loans right now.",
+    developerLoanSummaryTotal: "Total",
+    developerLoanSummaryEarly: "Early",
+    developerLoanSummaryNormal: "Normal",
+    developerLoanSummaryGrace: "Grace",
+    developerLoanSummaryPending: "Overdue",
     developerOwnerOnlyHint: "The connected wallet is not the contract owner",
     developerActionBusy: "Submitting owner action. Please confirm in your wallet.",
     developerPauseBorrowSuccess: "Borrow toggle updated",
@@ -397,6 +424,10 @@ const translations = {
     faqTitle: "Vault Manual",
     faqBlacklistQ: "Vault Blacklist",
     faqBlacklistA: "The blacklist is used to count inactive balances in the borrow-share denominator, such as LP, exchange custody addresses, and 0x...dead. It prevents those balances from being deducted twice alongside active vault collateral, and it is not a ban on normal user wallets.",
+    blacklistSourceOnChain: "On-chain",
+    blacklistSourceDefault: "Default logic",
+    blacklistSourceBoth: "On-chain + default",
+    blacklistDefaultDead: "Default burn address",
     blacklistLp: "LP: 0x6fe...c200",
     blacklistCustody: "CEX Custody: 0x194...a999",
     blacklistDead: "Dead: 0x000...dEaD",
@@ -475,6 +506,8 @@ let borrowerLoansRequestId = 0;
 let vaultOwnerAddress = "";
 let isVaultOwner = false;
 let developerPanelOpen = false;
+let blacklistEntries = [];
+let developerOrderViews = [];
 
 const injected = injectedModule();
 const onboard = Onboard({
@@ -567,10 +600,20 @@ const developerRhoSubmit = document.getElementById("developer-rho-submit");
 const developerBlacklistAddress = document.getElementById("developer-blacklist-address");
 const developerBlacklistAdd = document.getElementById("developer-blacklist-add");
 const developerBlacklistRemove = document.getElementById("developer-blacklist-remove");
+const developerBlacklistList = document.getElementById("developer-blacklist-list");
 const developerOwnerAddress = document.getElementById("developer-owner-address");
 const developerOwnerSubmit = document.getElementById("developer-owner-submit");
+const developerLoanSummary = document.getElementById("developer-loan-summary");
+const developerLoanList = document.getElementById("developer-loan-list");
+const faqBlacklistList = document.getElementById("faq-blacklist-list");
 const metricAnimationState = new WeakMap();
 const borrowEstimateAnimationState = new WeakMap();
+const DEFAULT_BLACKLIST_ENTRIES = [
+  {
+    address: DEAD_ADDRESS,
+    defaultLabelKey: "blacklistDefaultDead",
+  },
+];
 let activeLoanFilter = "all";
 let toastHideTimer = null;
 const SUBSCRIPT_DIGITS = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄", 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉" };
@@ -1015,6 +1058,7 @@ async function getSigner() {
 }
 
 async function ensureSupportedNetwork() {
+  if (canUseLocalDevSigner()) return true;
   if (!connectedWallet?.provider?.request) return false;
 
   const chainIdHex = await connectedWallet.provider.request({ method: "eth_chainId" });
@@ -1141,12 +1185,187 @@ function applyTranslations() {
   if (langToggle) langToggle.textContent = currentLang === "zh" ? "EN" : "中";
   renderBanner();
   renderDeveloperPanelCopy();
+  renderBlacklistLists();
+  renderDeveloperOrders();
   renderLoanCards();
 }
 
 function shortenAddress(address = "") {
   if (!address || address.length < 10) return address || "--";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function normalizeAddress(address = "") {
+  return address ? address.toLowerCase() : "";
+}
+
+function formatBlacklistSource(entry) {
+  if (entry.isOnChain && entry.isDefaultLogic) return t("blacklistSourceBoth");
+  if (entry.isDefaultLogic) return t("blacklistSourceDefault");
+  return t("blacklistSourceOnChain");
+}
+
+function buildBlacklistEntries(chainAddresses = []) {
+  const combined = new Map();
+
+  chainAddresses.forEach((address) => {
+    if (!ethers.isAddress(address)) return;
+    const checksumAddress = ethers.getAddress(address);
+    combined.set(normalizeAddress(checksumAddress), {
+      address: checksumAddress,
+      isOnChain: true,
+      isDefaultLogic: false,
+      defaultLabelKey: "",
+    });
+  });
+
+  DEFAULT_BLACKLIST_ENTRIES.forEach((entry) => {
+    const checksumAddress = ethers.getAddress(entry.address);
+    const key = normalizeAddress(checksumAddress);
+    const currentEntry = combined.get(key);
+
+    if (currentEntry) {
+      currentEntry.isDefaultLogic = true;
+      currentEntry.defaultLabelKey = entry.defaultLabelKey;
+      return;
+    }
+
+    combined.set(key, {
+      address: checksumAddress,
+      isOnChain: false,
+      isDefaultLogic: true,
+      defaultLabelKey: entry.defaultLabelKey,
+    });
+  });
+
+  return [...combined.values()].sort((left, right) => {
+    if (left.isDefaultLogic !== right.isDefaultLogic) return left.isDefaultLogic ? -1 : 1;
+    return left.address.localeCompare(right.address);
+  });
+}
+
+function createBlacklistListItem(entry) {
+  const item = document.createElement("li");
+  item.className = "blacklist-address-item";
+
+  const copy = document.createElement("div");
+  copy.className = "blacklist-address-copy";
+
+  const heading = document.createElement("strong");
+  heading.textContent = entry.isDefaultLogic && entry.defaultLabelKey ? t(entry.defaultLabelKey) : shortenAddress(entry.address);
+  copy.appendChild(heading);
+
+  const address = document.createElement("span");
+  address.textContent = entry.address;
+  address.className = "blacklist-address-value";
+  copy.appendChild(address);
+
+  const badge = document.createElement("span");
+  badge.className = "blacklist-source-badge";
+  badge.textContent = formatBlacklistSource(entry);
+
+  item.append(copy, badge);
+  return item;
+}
+
+function renderBlacklistLists() {
+  const targets = [developerBlacklistList, faqBlacklistList];
+
+  targets.forEach((list) => {
+    if (!list) return;
+    list.innerHTML = "";
+    blacklistEntries.forEach((entry) => {
+      list.appendChild(createBlacklistListItem(entry));
+    });
+  });
+}
+
+function renderDeveloperOrders() {
+  if (!developerLoanList) return;
+
+  const stageCounts = developerOrderViews.reduce(
+    (counts, view) => {
+      const stage = stageFromBorrowedAt(view.borrowedAt);
+      counts.total += 1;
+      if (stage === "early") counts.early += 1;
+      else if (stage === "normal") counts.normal += 1;
+      else if (stage === "grace") counts.grace += 1;
+      else counts.pending += 1;
+      return counts;
+    },
+    { total: 0, early: 0, normal: 0, grace: 0, pending: 0 }
+  );
+
+  if (developerLoanSummary) {
+    developerLoanSummary.innerHTML = "";
+    [
+      ["developerLoanSummaryTotal", stageCounts.total],
+      ["developerLoanSummaryEarly", stageCounts.early],
+      ["developerLoanSummaryNormal", stageCounts.normal],
+      ["developerLoanSummaryGrace", stageCounts.grace],
+      ["developerLoanSummaryPending", stageCounts.pending],
+    ].forEach(([labelKey, value]) => {
+      const chip = document.createElement("div");
+      chip.className = "developer-loan-summary-chip";
+
+      const label = document.createElement("span");
+      label.textContent = t(labelKey);
+
+      const count = document.createElement("strong");
+      count.textContent = String(value);
+
+      chip.append(label, count);
+      developerLoanSummary.appendChild(chip);
+    });
+  }
+
+  developerLoanList.innerHTML = "";
+
+  if (!developerOrderViews.length) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "developer-loan-empty";
+    emptyState.textContent = t("developerLoanListEmpty");
+    developerLoanList.appendChild(emptyState);
+    return;
+  }
+
+  developerOrderViews.forEach((view) => {
+    const row = document.createElement("article");
+    row.className = "developer-loan-row";
+
+    const heading = document.createElement("div");
+    heading.className = "developer-loan-heading";
+
+    const title = document.createElement("strong");
+    title.textContent = `#${view.orderId} ${shortenAddress(view.borrower)}`;
+    heading.appendChild(title);
+
+    const status = document.createElement("span");
+    status.className = `status-pill ${statusClassFromStage(stageFromBorrowedAt(view.borrowedAt))}`;
+    status.textContent = t(
+      stageFromBorrowedAt(view.borrowedAt) === "early"
+        ? "loanEarlyTitle"
+        : stageFromBorrowedAt(view.borrowedAt) === "normal"
+          ? "loanNormalTitle"
+          : stageFromBorrowedAt(view.borrowedAt) === "grace"
+            ? "loanGraceTitle"
+            : "loanLiquidationTitle"
+    );
+    heading.appendChild(status);
+
+    const meta = document.createElement("div");
+    meta.className = "developer-loan-meta";
+    meta.innerHTML = `
+      <span>${formatBorrowedAt(view.borrowedAt)}</span>
+      <span>${currentLang === "zh" ? "借款人" : "Borrower"}: ${view.borrower}</span>
+      <span>${currentLang === "zh" ? "质押" : "Stake"}: ${formatTokenAmount(view.collateralAmount)} BABURU</span>
+      <span>${currentLang === "zh" ? "借出" : "Borrowed"}: ${formatBnbAmount(view.borrowedBnb)} BNB</span>
+      <span>${currentLang === "zh" ? "罚金" : "Penalty"}: ${formatTokenAmount(view.penaltyAmount)} BABURU</span>
+    `;
+
+    row.append(heading, meta);
+    developerLoanList.appendChild(row);
+  });
 }
 
 function formatOwnerChipAddress(address = "") {
@@ -1676,21 +1895,76 @@ async function loadVaultMetrics() {
   } catch {}
 }
 
+async function loadBlacklistEntries() {
+  const contracts = getReadContracts();
+
+  if (!contracts || !APP_CONFIG.kinkoAddress) {
+    blacklistEntries = buildBlacklistEntries();
+    renderBlacklistLists();
+    return;
+  }
+
+  try {
+    const blacklistCount = Number(await contracts.kinko.blacklistCount());
+    const chainAddresses = await Promise.all(
+      Array.from({ length: blacklistCount }, (_, index) => contracts.kinko.blacklistAddresses(index))
+    );
+    blacklistEntries = buildBlacklistEntries(chainAddresses);
+  } catch {
+    blacklistEntries = buildBlacklistEntries();
+  }
+
+  renderBlacklistLists();
+}
+
+async function loadDeveloperOrders() {
+  const contracts = getReadContracts();
+
+  if (!contracts || !APP_CONFIG.kinkoAddress) {
+    developerOrderViews = [];
+    renderDeveloperOrders();
+    return;
+  }
+
+  try {
+    const orderIds = await contracts.kinko.getActiveOrderIds();
+    const views = await Promise.all(orderIds.map((orderId) => contracts.kinko.orderView(orderId)));
+    developerOrderViews = [...views].sort((left, right) => Number(left.borrowedAt) - Number(right.borrowedAt));
+  } catch {
+    developerOrderViews = [];
+  }
+
+  renderDeveloperOrders();
+}
+
 async function refreshOwnerState() {
   const contracts = getReadContracts();
   if (!contracts || !APP_CONFIG.kinkoAddress) {
     vaultOwnerAddress = "";
     isVaultOwner = false;
+    blacklistEntries = buildBlacklistEntries();
+    developerOrderViews = [];
     renderDeveloperPanelCopy();
     renderDeveloperPanel();
+    renderBlacklistLists();
+    renderDeveloperOrders();
     return;
   }
 
   try {
-    const [ownerAddress, rhoBpsValue] = await Promise.all([contracts.kinko.owner(), contracts.kinko.rhoBps()]);
+    const ownerTasks = [
+      contracts.kinko.owner(),
+      contracts.kinko.rhoBps(),
+      loadBlacklistEntries(),
+    ];
+
+    if (developerPanelOpen) {
+      ownerTasks.push(loadDeveloperOrders());
+    }
+
+    const [ownerAddress, rhoBpsValue] = await Promise.all(ownerTasks);
     vaultOwnerAddress = ownerAddress;
     isVaultOwner = Boolean(
-      connectedWallet &&
       connectedAddress &&
       ownerAddress &&
       connectedAddress.toLowerCase() === ownerAddress.toLowerCase()
@@ -1705,6 +1979,10 @@ async function refreshOwnerState() {
   } catch {
     vaultOwnerAddress = "";
     isVaultOwner = false;
+    blacklistEntries = buildBlacklistEntries();
+    developerOrderViews = [];
+    renderBlacklistLists();
+    renderDeveloperOrders();
   }
 
   renderDeveloperPanelCopy();
@@ -2488,7 +2766,7 @@ async function runDeveloperAction(action, successKey) {
     showFloatingToast(t("developerActionBusy"), "busy");
     const tx = await action(contracts.kinko);
     await tx.wait();
-    await Promise.all([refreshVaultReadOnlyData(), loadBorrowerLoans(), loadWalletBalances(), updateBorrowEstimate()]);
+    await Promise.all([refreshVaultReadOnlyData(), refreshOwnerState(), loadBorrowerLoans(), loadWalletBalances(), updateBorrowEstimate()]);
     showFloatingToast(t(successKey), "success");
   } catch (error) {
     const fallbackMessage = humanizeContractError(error, "borrow");
@@ -2504,6 +2782,9 @@ function setupDeveloperPanel() {
     if (!isVaultOwner) return;
     developerPanelOpen = !developerPanelOpen;
     renderDeveloperPanel();
+    if (developerPanelOpen) {
+      void loadDeveloperOrders();
+    }
   });
 
   developerBorrowToggle?.addEventListener("click", async () => {

@@ -233,27 +233,37 @@ describe("BaburuKinko", function () {
       .to.be.revertedWithCustomError(kinko, "DuplicateOrderId");
   });
 
-  it("removes closed orders from borrower history instead of leaving tombstones", async function () {
+  it("keeps completed orders in borrower history until the borrower cleans them up", async function () {
     const { borrower, baburu, kinko } = await deployFixture();
     const collateral = ethers.parseEther("1000000");
     const firstQuote = await kinko.quoteBorrow(collateral);
 
-    await baburu.connect(borrower).approve(await kinko.getAddress(), collateral * 2n);
+    await baburu.connect(borrower).approve(await kinko.getAddress(), collateral * 3n);
     await kinko.connect(borrower).borrow(collateral, firstQuote, 9500);
 
     const secondQuote = await kinko.quoteBorrow(collateral);
     await kinko.connect(borrower).borrow(collateral, secondQuote, 9500);
 
     expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([1n, 2n]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([1n, 2n]);
 
     await network.provider.send("evm_increaseTime", [4 * ONE_DAY]);
     await network.provider.send("evm_mine");
 
     await kinko.connect(borrower).repay([1], { value: firstQuote });
     expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([2n]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([1n, 2n]);
+
+    await kinko.connect(borrower).cleanupFinishedOrders(10);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([2n]);
 
     await kinko.connect(borrower).repay([2], { value: secondQuote });
     expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([2n]);
+
+    await kinko.connect(borrower).borrow(collateral, await kinko.quoteBorrow(collateral), 9500);
+    expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([3n]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([3n]);
   });
 
   it("allows public liquidation after 9 days", async function () {
@@ -274,6 +284,13 @@ describe("BaburuKinko", function () {
     const deadBalance = await baburu.balanceOf(DEAD_ADDRESS);
     expect(deadBalance).to.equal(collateral);
     expect(await kinko.activeOrderCount()).to.equal(0n);
+    expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([1n]);
+    expect(await kinko.getActiveOrderIds()).to.deep.equal([]);
+
+    const orderView = await kinko.orderView(1);
+    expect(orderView.repayable).to.equal(false);
+    expect(orderView.liquidatable).to.equal(false);
   });
 
   it("supports global public liquidation without explicit order ids", async function () {
@@ -300,5 +317,35 @@ describe("BaburuKinko", function () {
     expect(deadBalance).to.equal(collateral * 2n);
     expect(await kinko.activeOrderCount()).to.equal(0n);
     expect(await kinko.activeCollateral()).to.equal(0n);
+    expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([1n, 2n]);
+    expect(await kinko.getActiveOrderIds()).to.deep.equal([]);
+  });
+
+  it("processes overdue ids during repay without immediately cleaning borrower history", async function () {
+    const { borrower, baburu, kinko } = await deployFixture();
+    const collateral = ethers.parseEther("1000000");
+    const firstQuote = await kinko.quoteBorrow(collateral);
+
+    await baburu.connect(borrower).approve(await kinko.getAddress(), collateral * 2n);
+    await kinko.connect(borrower).borrow(collateral, firstQuote, 9500);
+
+    const secondQuote = await kinko.quoteBorrow(collateral);
+    await kinko.connect(borrower).borrow(collateral, secondQuote, 9500);
+
+    await network.provider.send("evm_increaseTime", [9 * ONE_DAY + 60]);
+    await network.provider.send("evm_mine");
+
+    await expect(kinko.connect(borrower).repay([1, 2], { value: 0 }))
+      .to.emit(kinko, "Liquidated")
+      .withArgs(1, borrower.address, collateral);
+
+    expect(await kinko.getBorrowerOrders(borrower.address)).to.deep.equal([]);
+    expect(await kinko.getBorrowerOrderHistory(borrower.address)).to.deep.equal([1n, 2n]);
+    expect(await kinko.getActiveOrderIds()).to.deep.equal([]);
+
+    const [countAfter, collateralAfter] = await kinko.liquidatableSummary();
+    expect(countAfter).to.equal(0n);
+    expect(collateralAfter).to.equal(0n);
   });
 });

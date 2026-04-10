@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.join(__dirname, "..");
 const stateDir = path.join(root, ".local", "dev");
+const qaLogRoot = path.join(root, "artifacts", "qa-logs");
 
 const paths = {
   hardhatPid: path.join(stateDir, "hardhat.pid"),
@@ -38,6 +39,15 @@ async function cleanupStalePid(pidFile) {
     throw new Error(`Process already running with PID ${pid}. Use npm run local:down first if you want a clean restart.`);
   }
   await fsp.rm(pidFile, { force: true });
+}
+
+async function resetLogFiles(logFiles) {
+  await Promise.all(
+    logFiles.map(async (logFile) => {
+      await fsp.rm(logFile, { force: true });
+    })
+  );
+  await fsp.rm(qaLogRoot, { recursive: true, force: true });
 }
 
 function isPortOpen(port) {
@@ -108,6 +118,7 @@ async function main() {
   await cleanupStalePid(paths.vitePid);
   await cleanupStalePid(paths.taxPid);
   await cleanupStalePid(paths.loanPid);
+  await resetLogFiles([paths.hardhatLog, paths.deployLog, paths.viteLog, paths.taxLog, paths.loanLog]);
 
   if (await isPortOpen(8545)) {
     throw new Error("Port 8545 is already in use. Stop the existing local chain before starting a new one.");

@@ -664,6 +664,10 @@ html[lang="zh-CN"] .filter-chip {
   gap: 8px;
 }
 
+.developer-panel .debug-strip {
+  margin: 0 0 14px;
+}
+
 .developer-chip {
   display: inline-flex;
   align-items: center;
@@ -752,6 +756,90 @@ html[lang="zh-CN"] .filter-chip {
 
 .developer-card-actions {
   width: 100%;
+}
+
+.developer-blacklist-current {
+  display: grid;
+  gap: 10px;
+}
+
+.developer-blacklist-current .blacklist-address-list,
+.developer-loan-list {
+  max-height: 13.5rem;
+  overflow: auto;
+  padding-right: 0.18rem;
+}
+
+.developer-loan-list {
+  display: grid;
+  gap: 8px;
+}
+
+.developer-loan-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.developer-loan-summary-chip {
+  display: grid;
+  gap: 3px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
+  text-align: center;
+}
+
+.developer-loan-summary-chip span {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.developer-loan-summary-chip strong {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.developer-loan-row {
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
+}
+
+.developer-loan-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.developer-loan-heading strong {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.developer-loan-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+}
+
+.developer-loan-meta span,
+.developer-loan-empty {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 @keyframes developer-panel-enter {
@@ -1979,14 +2067,19 @@ html[lang="zh-CN"] .hero-description {
 
 .borrow-summary {
   display: grid;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  height: 100%;
+}
+
+.borrow-summary-footer {
+  display: grid;
   gap: 10px;
 }
 
 .borrow-machine-actions {
   display: grid;
   gap: 10px;
-  margin-top: 2px;
 }
 
 .borrow-refresh-meta {
@@ -2081,10 +2174,9 @@ html[lang="zh-CN"] .hero-description {
 
 .estimate-inline {
   display: grid;
-  gap: 6px;
-  align-content: start;
+  place-items: center start;
   min-width: 0;
-  margin-top: 0;
+  min-height: 100%;
 }
 
 .estimate-head {
@@ -2165,11 +2257,15 @@ input[type="range"] {
 }
 
 .result-number {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
   font-family: var(--font-data);
-  font-size: clamp(2.2rem, 4.2vw, 3.2rem);
+  font-size: clamp(2.55rem, 4.9vw, 3.7rem);
   line-height: 0.9;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  margin: 0;
 }
 
 .result-number em {
@@ -2869,6 +2965,59 @@ html[lang="zh-CN"] .faq-list summary {
   font-size: var(--text-sm);
 }
 
+.blacklist-address-list {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.blacklist-address-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
+}
+
+.blacklist-address-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.blacklist-address-copy strong {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.blacklist-address-value {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.blacklist-source-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0 0.66rem;
+  border-radius: 999px;
+  background: rgba(255, 216, 198, 0.36);
+  box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .faq-list {
   display: grid;
   gap: 12px;
@@ -2891,6 +3040,26 @@ html[lang="zh-CN"] .faq-list summary {
 
 .faq-list summary::-webkit-details-marker {
   display: none;
+}
+
+@media (max-width: 720px) {
+  .blacklist-address-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .blacklist-source-badge {
+    justify-self: flex-start;
+    width: fit-content;
+  }
+
+  .developer-loan-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .developer-loan-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .faq-list p {

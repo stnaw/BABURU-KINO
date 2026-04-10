@@ -14,6 +14,7 @@ contract BaburuKinko {
         uint256 collateralAmount;
         uint256 borrowedBnb;
         uint64 borrowedAt;
+        uint8 status;
     }
 
     struct OrderView {
@@ -37,6 +38,10 @@ contract BaburuKinko {
     uint256 public constant GRACE_STAGE_ONE = 7 days;
     uint256 public constant GRACE_STAGE_TWO = 8 days;
     uint256 public constant LIQUIDATION_TIME = 9 days;
+    uint8 public constant ORDER_STATUS_NONE = 0;
+    uint8 public constant ORDER_STATUS_ACTIVE = 1;
+    uint8 public constant ORDER_STATUS_REPAID = 2;
+    uint8 public constant ORDER_STATUS_LIQUIDATED = 3;
     address public constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     IERC20Minimal public immutable baburuToken;
@@ -89,6 +94,7 @@ contract BaburuKinko {
     error TransferFailed();
     error UnsupportedTokenBehavior();
     error OrderMissing();
+    error OrderClosed();
     error DuplicateOrderId();
 
     modifier onlyOwner() {
@@ -110,6 +116,8 @@ contract BaburuKinko {
         uint256 refBorrow,
         uint256 minBorrowBps
     ) external returns (uint256 orderId, uint256 borrowedBnb) {
+        _cleanupFinishedOrders(msg.sender, type(uint256).max);
+
         if (borrowPaused) revert BorrowPaused();
         if (collateralAmount == 0 || refBorrow == 0) revert InvalidAmount();
         if (minBorrowBps == 0 || minBorrowBps > BPS_DENOMINATOR) revert InvalidMinBorrowBps();
@@ -130,7 +138,8 @@ contract BaburuKinko {
             borrower: msg.sender,
             collateralAmount: collateralAmount,
             borrowedBnb: borrowedBnb,
-            borrowedAt: uint64(block.timestamp)
+            borrowedAt: uint64(block.timestamp),
+            status: ORDER_STATUS_ACTIVE
         });
         borrowerOrderIds[msg.sender].push(orderId);
         borrowerOrderIndex[orderId] = borrowerOrderIds[msg.sender].length - 1;
@@ -146,12 +155,15 @@ contract BaburuKinko {
     }
 
     function repay(uint256[] calldata orderIds) external payable returns (uint256 totalPenalty) {
+        _cleanupFinishedOrders(msg.sender, type(uint256).max);
+
         uint256 totalBnbDue;
 
         for (uint256 i = 0; i < orderIds.length; i++) {
             _revertOnDuplicateOrderId(orderIds, i);
             Order memory order = orders[orderIds[i]];
             if (order.borrower == address(0)) revert OrderMissing();
+            if (order.status != ORDER_STATUS_ACTIVE) revert OrderClosed();
 
             if (_isLiquidatable(order.borrowedAt)) {
                 _liquidate(orderIds[i], msg.sender);
@@ -170,6 +182,9 @@ contract BaburuKinko {
             if (order.borrower != msg.sender) {
                 continue;
             }
+            if (order.status != ORDER_STATUS_ACTIVE) {
+                continue;
+            }
             if (_isLiquidatable(order.borrowedAt)) {
                 continue;
             }
@@ -182,6 +197,11 @@ contract BaburuKinko {
             _revertOnDuplicateOrderId(orderIds, i);
             _liquidate(orderIds[i], msg.sender);
         }
+    }
+
+    function cleanupFinishedOrders(uint256 maxCount) external returns (uint256 cleanedCount) {
+        if (maxCount == 0) revert InvalidAmount();
+        return _cleanupFinishedOrders(msg.sender, maxCount);
     }
 
     function liquidateOverdue(uint256 maxCount) external returns (uint256 processedCount, uint256 burnedCollateral) {
@@ -254,7 +274,7 @@ contract BaburuKinko {
         uint256 count;
 
         for (uint256 i = 0; i < storedOrderIds.length; i++) {
-            if (orders[storedOrderIds[i]].borrower != address(0)) {
+            if (orders[storedOrderIds[i]].status == ORDER_STATUS_ACTIVE) {
                 count++;
             }
         }
@@ -262,11 +282,15 @@ contract BaburuKinko {
         borrowerActiveOrderIds = new uint256[](count);
         uint256 writeIndex;
         for (uint256 i = 0; i < storedOrderIds.length; i++) {
-            if (orders[storedOrderIds[i]].borrower != address(0)) {
+            if (orders[storedOrderIds[i]].status == ORDER_STATUS_ACTIVE) {
                 borrowerActiveOrderIds[writeIndex] = storedOrderIds[i];
                 writeIndex++;
             }
         }
+    }
+
+    function getBorrowerOrderHistory(address borrower) external view returns (uint256[] memory borrowerOrderHistoryIds) {
+        borrowerOrderHistoryIds = borrowerOrderIds[borrower];
     }
 
     function getActiveOrderIds() external view returns (uint256[] memory ids) {
@@ -313,9 +337,10 @@ contract BaburuKinko {
         Order memory order = orders[orderId];
         if (order.borrower == address(0)) revert OrderMissing();
 
-        uint256 currentPenaltyBps = penaltyBps(order.borrowedAt);
-        bool liquidatable = currentPenaltyBps == BPS_DENOMINATOR;
-        bool repayable = !liquidatable;
+        bool isActive = order.status == ORDER_STATUS_ACTIVE;
+        uint256 currentPenaltyBps = isActive ? penaltyBps(order.borrowedAt) : 0;
+        bool liquidatable = isActive && currentPenaltyBps == BPS_DENOMINATOR;
+        bool repayable = isActive && !liquidatable;
 
         viewData = OrderView({
             orderId: orderId,
@@ -324,7 +349,7 @@ contract BaburuKinko {
             borrowedBnb: order.borrowedBnb,
             borrowedAt: order.borrowedAt,
             penaltyBpsValue: currentPenaltyBps,
-            penaltyAmount: _penaltyAmount(order.collateralAmount, order.borrowedAt),
+            penaltyAmount: isActive ? _penaltyAmount(order.collateralAmount, order.borrowedAt) : 0,
             repayable: repayable,
             liquidatable: liquidatable
         });
@@ -339,6 +364,7 @@ contract BaburuKinko {
             _revertOnDuplicateOrderId(orderIds, i);
             Order memory order = orders[orderIds[i]];
             if (order.borrower == address(0)) revert OrderMissing();
+            if (order.status != ORDER_STATUS_ACTIVE) revert OrderClosed();
 
             if (_isLiquidatable(order.borrowedAt)) {
                 liquidatableCount += 1;
@@ -411,11 +437,10 @@ contract BaburuKinko {
     }
 
     function _closeOrder(uint256 orderId, Order memory order, uint256 penaltyAmount) internal {
-        _removeBorrowerOrder(order.borrower, orderId);
         _removeActiveOrder(orderId);
         activeCollateral -= order.collateralAmount;
         activeOrderCount -= 1;
-        delete orders[orderId];
+        orders[orderId].status = ORDER_STATUS_REPAID;
 
         uint256 returnedCollateral = order.collateralAmount;
         if (penaltyAmount > 0) {
@@ -430,13 +455,13 @@ contract BaburuKinko {
     function _liquidate(uint256 orderId, address operator) internal {
         Order memory order = orders[orderId];
         if (order.borrower == address(0)) revert OrderMissing();
+        if (order.status != ORDER_STATUS_ACTIVE) revert OrderClosed();
         if (!_isLiquidatable(order.borrowedAt)) revert NotRepayable();
 
-        _removeBorrowerOrder(order.borrower, orderId);
         _removeActiveOrder(orderId);
         activeCollateral -= order.collateralAmount;
         activeOrderCount -= 1;
-        delete orders[orderId];
+        orders[orderId].status = ORDER_STATUS_LIQUIDATED;
         _safeTransfer(DEAD_ADDRESS, order.collateralAmount);
 
         emit Liquidated(orderId, operator, order.collateralAmount);
@@ -477,6 +502,22 @@ contract BaburuKinko {
 
         borrowerOrders.pop();
         delete borrowerOrderIndex[orderId];
+    }
+
+    function _cleanupFinishedOrders(address borrower, uint256 maxCount) internal returns (uint256 cleanedCount) {
+        uint256[] storage borrowerOrders = borrowerOrderIds[borrower];
+        uint256 index;
+
+        while (index < borrowerOrders.length && cleanedCount < maxCount) {
+            uint256 orderId = borrowerOrders[index];
+            if (orders[orderId].status == ORDER_STATUS_ACTIVE) {
+                index++;
+                continue;
+            }
+
+            _removeBorrowerOrder(borrower, orderId);
+            cleanedCount++;
+        }
     }
 
     function _safeTransfer(address to, uint256 value) internal {

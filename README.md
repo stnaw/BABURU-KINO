@@ -14,8 +14,6 @@
   设计与规则补充思考。
 - `scripts/analysis/`
   金库参数和借款规则的本地分析脚本。
-- `tests/`
-  Playwright 测试目录。
 
 ## 本地查看前端
 
@@ -90,11 +88,3 @@ npm run test:contracts
 - [scripts/analysis/simulate_lend_ratio.py](/Users/stnaw/Projects/tax/scripts/analysis/simulate_lend_ratio.py)
 - [scripts/analysis/simulate_treasury.py](/Users/stnaw/Projects/tax/scripts/analysis/simulate_treasury.py)
 
-## 测试
-
-仓库已包含 Playwright 依赖与配置：
-
-- [playwright.config.ts](/Users/stnaw/Projects/tax/playwright.config.ts)
-- [tests/example.spec.ts](/Users/stnaw/Projects/tax/tests/example.spec.ts)
-
-如果要继续完善，下一步更适合补一组针对 `frontend/index.html` 的真实页面 smoke tests，而不是保留默认示例测试。

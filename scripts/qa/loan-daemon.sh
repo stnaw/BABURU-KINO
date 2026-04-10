@@ -11,7 +11,8 @@ cd "$ROOT_DIR"
 echo "BABURU KINKO multi-loan simulation daemon started."
 echo "Interval: ${INTERVAL_SECONDS}s"
 echo "Participants: ${QA_LOAN_PARTICIPANTS:-10}"
-echo "Rounds per cycle: ${QA_LOAN_ROUNDS:-4}"
+echo "Max rounds per cycle: ${QA_LOAN_ROUNDS:-64}"
+echo "Target simulation days: ${QA_LOAN_TOTAL_DAYS:-19}"
 echo "Time step options: ${QA_LOAN_TIME_STEP_OPTIONS:-21600,43200,64800,86400}"
 
 while true; do

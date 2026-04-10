@@ -106,10 +106,13 @@
  - 订单走 100% 质押销毁路径
 2. 公共清算：
  - 任意地址可对超期订单发起清算
+ - 公共清算仅触发销毁，不立即删除该条逾期订单记录
  - 超期订单不应阻塞同批次其他未超期订单处理
 3. 验收：
  - 超期订单不计入应还 BNB
  - 销毁口径为 `transfer(0x...dead)`，不依赖 `burn()`
+ - 仅借款人本人可清理自己的已完成订单记录；他人不可清理
+ - 借款人下一次业务动作会触发其自身已完成订单记录清理
 
 ## 7. 前端回归测试（按 `Design/前端展示.md`）
 1. 概览区：
@@ -142,7 +145,7 @@
  - 税模拟窗口：`buyCount`、`sellCount`、`buyVol`、`sellVol`、`expectedTaxBnb`、`actualVaultBnbDelta`、`deltaPct`
  - 金库状态：`vaultBnb`、`activeOrderCount`、`activePledgeBaburu`、`rho`、`pausedNewBorrow`
  - 借款结果：`borrowSuccess`、`borrowFail`、`failReasons`（如 `minBorrowBps`、`denominator<=0`、`allowance`）
- - 还款与清算：`repaySuccess`、`repayFail`、`liquidationCount`、`overdueCount`
+ - 还款与清算：`repaySuccess`、`repayFail`、`earlyRepaySuccess`、`normalRepaySuccess`、`lateRepaySuccess`、`liquidationCount`、`overdueCount`
  - 一致性断言：`bnbTotalMatchPassRate`、`anomalies`（异常订单 ID 列表）
 4. 输出示例：
 ```json
@@ -182,7 +185,10 @@
   },
   "repay": {
     "repaySuccess": 9,
-    "repayFail": 1
+    "repayFail": 1,
+    "earlyRepaySuccess": 2,
+    "normalRepaySuccess": 5,
+    "lateRepaySuccess": 2
   },
   "liquidation": {
     "liquidationCount": 4,

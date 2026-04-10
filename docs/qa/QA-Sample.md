@@ -1,7 +1,7 @@
 # QA Sample（可直接分派给 AI）
 
-> 对齐文档：`docs/design/税率分配.md`、`docs/design/QA.md`、`docs/design/前端展示.md`  
-> 口径优先级：若冲突，以 `docs/design/税率分配.md` 为准。  
+> 对齐文档：`docs/tokenomics/税率分配.md`、`docs/qa/QA.md`、`docs/ui-spec/前端展示.md`  
+> 口径优先级：若冲突，以 `docs/tokenomics/税率分配.md` 为准。  
 > 罚金口径：`罚金 = 该订单质押本币数量 × 档位比例`，且从该订单已质押 BABURU 中扣除。
 
 格式：`ID | 优先级 | 前置 | 步骤 | 预期结果 | 产出日志`

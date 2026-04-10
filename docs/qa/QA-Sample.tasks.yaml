@@ -1,11 +1,11 @@
 version: "1.0"
 name: "BABURU-KINKO-QA-Sample"
 source_of_truth:
-  - "docs/design/税率分配.md"
-  - "docs/design/QA.md"
-  - "docs/design/前端展示.md"
+  - "docs/tokenomics/税率分配.md"
+  - "docs/qa/QA.md"
+  - "docs/ui-spec/前端展示.md"
 rules:
-  conflict_resolution: "When documents conflict, use docs/design/税率分配.md"
+  conflict_resolution: "When documents conflict, use docs/tokenomics/税率分配.md"
   penalty_formula: "penalty = pledged_baburu_of_order * tier_ratio"
   penalty_source: "Deduct from pledged BABURU of the same order"
   money_precision: "Use wei for all assertions, no floating-point comparisons"

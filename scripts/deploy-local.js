@@ -6,6 +6,9 @@ import hre from "hardhat";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LOCAL_BORROWER_PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+const MOCK_BABURU_PRICE_BNB = "0.0000015";
+const MOCK_BNB_PRICE_USDT = "6";
+const MOCK_BABURU_PRICE_USDT = "0.000009";
 
 async function main() {
   const [deployer, borrower] = await hre.ethers.getSigners();
@@ -31,6 +34,9 @@ async function main() {
   kinkoAddress: "${await kinko.getAddress()}",
   localDevSignerAddress: "${borrower.address}",
   localDevPrivateKey: "${LOCAL_BORROWER_PRIVATE_KEY}",
+  mockBaburuPriceBnb: ${MOCK_BABURU_PRICE_BNB},
+  mockBnbPriceUsdt: ${MOCK_BNB_PRICE_USDT},
+  mockBaburuPriceUsdt: ${MOCK_BABURU_PRICE_USDT},
   nowTs: "${new Date().toISOString()}"
 };
 `;

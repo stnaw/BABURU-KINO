@@ -1655,6 +1655,16 @@ html[lang="zh-CN"] .hero-description {
   margin: 0 0.02em 0 0.01em;
 }
 
+.metric-card>strong .metric-inline-subscript {
+  font-size: 0.42em;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: baseline;
+  transform: translateY(+0.8em);
+  font-variant-numeric: tabular-nums lining-nums;
+  margin: 0 0.1em 0 0.1em;
+}
+
 .metric-stack {
   position: relative;
   z-index: 1;
@@ -1737,41 +1747,49 @@ html[lang="zh-CN"] .hero-description {
 .metrics-grid .metric-card-heat {
   grid-column: span 1;
   display: grid;
-  grid-template-rows: auto minmax(3.6rem, auto) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   align-content: start;
 }
 
 .metric-card-reserve {
-  grid-template-rows: auto minmax(3.6rem, auto) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   align-content: start;
 }
 
 .metric-card-heat .metric-stack-inline {
   align-self: end;
   width: 100%;
-  margin-top: 2px;
-  min-height: 4.6rem;
+  margin-top: 0;
+  min-height: 0;
   position: relative;
   z-index: 2;
 }
 
 .metric-card-reserve .metric-stack-inline {
-  align-self: start;
+  align-self: end;
   width: 100%;
   max-width: none;
-  margin-top: 6px;
-  min-height: 4.6rem;
+  margin-top: 0;
+  min-height: 0;
   position: relative;
   z-index: 2;
-  display: grid;
-  grid-template-rows: auto auto;
-  align-content: start;
 }
 
 .metric-card-reserve>strong,
 .metric-card-heat>strong {
   grid-row: 2;
-  align-self: end;
+  align-self: center;
+  margin: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  min-height: 100%;
+}
+
+#reserve-metric,
+#price-metric {
+  margin: 0;
+  line-height: 1;
 }
 
 .metric-card-reserve .metric-stack-inline,
@@ -1782,25 +1800,27 @@ html[lang="zh-CN"] .hero-description {
 .metric-card-reserve .metric-stack-inline-wide {
   width: 100%;
   max-width: none;
-}
-
-.metric-card-reserve .metric-stack-inline::after {
-  content: "";
-  display: block;
-  min-height: 2.5rem;
+  gap: 4px;
 }
 
 .metric-card-reserve .metric-stack-row {
   width: 100%;
+  min-height: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .metric-card-heat .metric-stack-inline-wide {
   width: 100%;
   max-width: none;
+  gap: 4px;
 }
 
 .metric-card-heat .metric-stack-row {
   width: 100%;
+  min-height: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .metric-stack-inline .metric-stack-row {
@@ -3043,6 +3063,29 @@ html[lang="zh-CN"] .faq-list summary {
 }
 
 @media (max-width: 720px) {
+  .developer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .developer-card-wide {
+    grid-column: auto;
+  }
+
+  .developer-inline-form,
+  .developer-inline-form-wide {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .developer-field-wide {
+    grid-column: auto;
+  }
+
+  .developer-inline-form .secondary-button,
+  .developer-inline-form .ghost-button {
+    width: 100%;
+  }
+
   .blacklist-address-item {
     flex-direction: column;
     align-items: stretch;

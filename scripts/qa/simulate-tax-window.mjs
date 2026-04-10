@@ -18,6 +18,7 @@ const BABURU_PRICE_WEI = hre.ethers.parseEther("0.0000015");
 const LOG_TIME = new Date().toISOString();
 const runId = process.env.QA_RUN_ID || `qa-tax-${LOG_TIME.replace(/[:.]/g, "-")}`;
 const logDir = process.env.QA_LOG_DIR || path.join(root, "artifacts", "qa-logs", runId);
+const latestMarketStatePath = path.join(root, "artifacts", "qa-logs", "latest-market.json");
 const jsonlPath =
   process.env.QA_JSONL_PATH || path.join(logDir, `qa-key-log-${LOG_TIME.slice(0, 16).replace(/[-:T]/g, "")}.jsonl`);
 const summaryPath = path.join(logDir, "tax-summary.json");
@@ -48,6 +49,10 @@ async function readFrontendConfig() {
   }
 
   return Function(`return (${objectMatch[1]})`)();
+}
+
+async function writeLatestMarketState(payload) {
+  await fs.writeFile(latestMarketStatePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
 function pickBucket(rng) {
@@ -88,6 +93,14 @@ function deltaPct(expected, actual) {
   return `${(basisPoints / 100).toFixed(2)}%`;
 }
 
+function nextPricePoint(rng, previousUsdt) {
+  const anchor = 0.000009;
+  const randomDrift = (rng() - 0.5) * 0.0000022;
+  const meanReversion = (anchor - previousUsdt) * 0.16;
+  const next = previousUsdt + randomDrift + meanReversion;
+  return Math.min(0.00002, Math.max(0.000003, next));
+}
+
 async function main() {
   await ensureDir(logDir);
 
@@ -99,6 +112,8 @@ async function main() {
   const provider = hre.ethers.provider;
   const rng = createRng(DEFAULT_SEED);
   const ownerSigner = await getOwnerSigner(kinko, signers);
+  const mockBnbPriceUsdt = Number(config.mockBnbPriceUsdt || 6);
+  let mockBaburuPriceUsdt = Number(config.mockBaburuPriceUsdt || 0.000009);
 
   await kinko.connect(ownerSigner).setBlacklist(blacklist.address, true);
 
@@ -112,6 +127,15 @@ async function main() {
   const rounds = [];
 
   for (let round = 1; round <= ROUNDS; round++) {
+    mockBaburuPriceUsdt = nextPricePoint(rng, mockBaburuPriceUsdt);
+    const mockBaburuPriceBnb = mockBnbPriceUsdt > 0 ? mockBaburuPriceUsdt / mockBnbPriceUsdt : 0;
+    await writeLatestMarketState({
+      mockBaburuPriceUsdt: Number(mockBaburuPriceUsdt.toFixed(12)),
+      mockBaburuPriceBnb: Number(mockBaburuPriceBnb.toFixed(12)),
+      mockBnbPriceUsdt,
+      nowTs: new Date().toISOString(),
+    });
+
     let buyCount = 0;
     let sellCount = 0;
     let buyVol = 0n;
@@ -176,6 +200,9 @@ async function main() {
             actualVaultBnbDelta: formatEth(actualWindowTax),
             deltaPct: deltaPct(windowExpected, actualWindowTax),
           },
+          market: {
+            baburuPriceUsdt: Number(mockBaburuPriceUsdt.toFixed(12)),
+          },
           vault: {
             vaultBnb: formatEth(snapshot.liveBalance),
             activeOrderCount: Number(await kinko.activeOrderCount()),
@@ -209,6 +236,7 @@ async function main() {
 
     rounds.push({
       round,
+      baburuPriceUsdt: Number(mockBaburuPriceUsdt.toFixed(12)),
       buyCount,
       sellCount,
       buyVol: hre.ethers.formatUnits(buyVol, 18),
@@ -229,6 +257,10 @@ async function main() {
     ],
     seed: DEFAULT_SEED,
     rounds,
+    market: {
+      baburuPriceUsdt: Number(mockBaburuPriceUsdt.toFixed(12)),
+      bnbPriceUsdt: mockBnbPriceUsdt,
+    },
     vault: {
       liveBalance: formatEth(finalSnapshot.liveBalance),
       borrowedOutstanding: formatEth(finalSnapshot.borrowedOutstanding),

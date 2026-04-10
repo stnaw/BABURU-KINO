@@ -11,21 +11,40 @@ const APP_CONFIG = {
   buyUrl: window.BABURU_CONFIG?.buyUrl || "#",
   localDevSignerAddress: window.BABURU_CONFIG?.localDevSignerAddress || "",
   localDevPrivateKey: window.BABURU_CONFIG?.localDevPrivateKey || "",
+  mockBaburuPriceBnb: Number(window.BABURU_CONFIG?.mockBaburuPriceBnb || 0),
+  mockBnbPriceUsdt: Number(window.BABURU_CONFIG?.mockBnbPriceUsdt || 0),
+  mockBaburuPriceUsdt: Number(window.BABURU_CONFIG?.mockBaburuPriceUsdt || 0),
   nowTs: window.BABURU_CONFIG?.nowTs || "2026-04-08T12:00:00+08:00",
 };
+const runtimeConfig = { ...APP_CONFIG };
+const LOCAL_MARKET_STATE_URL = `/@fs${encodeURI("/Users/stnaw/Projects/tax/artifacts/qa-logs/latest-market.json")}`;
 const LAST_WALLET_LABEL_KEY = "baburu-last-wallet-label";
 const LAST_CONNECTED_ADDRESS_KEY = "baburu-last-connected-address";
 const LAST_RATIO_BPS_KEY = "baburu-last-ratio-bps";
 const BANNER_DISMISSED_KEY = "baburu-banner-dismissed";
 const LOCAL_BORROWER_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const VAULT_REFRESH_INTERVAL_MS = 10000;
+const PRICE_REFRESH_INTERVAL_MS = 3000;
 const MIN_FRONTEND_COLLATERAL_WEI = ethers.parseUnits("10000", 18);
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+const NORMAL_FROM_SUBSCRIPT = {
+  "₀": "0",
+  "₁": "1",
+  "₂": "2",
+  "₃": "3",
+  "₄": "4",
+  "₅": "5",
+  "₆": "6",
+  "₇": "7",
+  "₈": "8",
+  "₉": "9",
+};
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function allowance(address,address) view returns (uint256)",
   "function approve(address,uint256) returns (bool)",
+  "function totalSupply() view returns (uint256)",
 ];
 
 const KINKO_ABI = [
@@ -77,10 +96,11 @@ const translations = {
     bannerSuffix: "开启专属于你的金库大门。",
     pausedBanner: "BABURU 金库维护中",
     overviewTitle: "金库状态",
-    metricToyReserve: "可用 BNB",
+    metricToyReserve: "可借 BNB",
     metricReserveLive: "实时余额",
     metricReserveTotal: "金库 BNB 总量",
-    metricActiveCollateral: "BABURU 已质押",
+    metricActiveCollateral: "BABURU 质押",
+    metricBurnedBnb: "BABURU 已销毁",
     metricPendingLiquidation: "BABURU 待清算",
     metricExposureNote: "活跃借款数",
     metricMarketNote: "BABURU",
@@ -291,10 +311,11 @@ const translations = {
     bannerSuffix: "to unlock your vault access.",
     pausedBanner: "BABURU KINKO is under maintenance",
     overviewTitle: "Vault Status",
-    metricToyReserve: "Available BNB",
+    metricToyReserve: "Borrowable BNB",
     metricReserveLive: "Live Balance",
     metricReserveTotal: "Vault Total BNB",
-    metricActiveCollateral: "BABURU Staked",
+    metricActiveCollateral: "BABURU Staking",
+    metricBurnedBnb: "BABURU Burned",
     metricPendingLiquidation: "BABURU Pending Liquidation",
     metricExposureNote: "Active Loans",
     metricMarketNote: "BABURU",
@@ -502,6 +523,7 @@ let vaultRefreshInFlight = false;
 let vaultClockTimer = null;
 let borrowPanelActive = false;
 let nextVaultRefreshAt = Date.now() + VAULT_REFRESH_INTERVAL_MS;
+let nextPriceRefreshAt = Date.now() + PRICE_REFRESH_INTERVAL_MS;
 let borrowerLoansRequestId = 0;
 let vaultOwnerAddress = "";
 let isVaultOwner = false;
@@ -584,7 +606,9 @@ const flowSteps = [...document.querySelectorAll(".flow-steps-panel .flow-step")]
 const reserveMetric = document.getElementById("reserve-metric");
 const reserveTotalMetric = document.getElementById("reserve-total-metric");
 const activeCollateralMetric = document.getElementById("active-collateral-metric");
+const burnedBnbMetric = document.getElementById("burned-bnb-metric");
 const liquidatableCollateralMetric = document.getElementById("liquidatable-collateral-metric");
+const priceMetric = document.getElementById("price-metric");
 const activeLoansMetric = document.getElementById("active-loans-metric");
 const singleLoanRatioMetric = document.getElementById("single-loan-ratio-metric");
 const publicLiquidationButton = document.getElementById("public-liquidation-button");
@@ -645,7 +669,14 @@ function formatWithTinySubscript(value, {
 
     if (zeroCount >= 0) {
       const significant = trimmedFraction.slice(zeroCount, zeroCount + tinySignificantDigits) || "0";
-      return `${sign}0.${toSubscriptDigits(zeroCount)}${significant}`;
+      if (zeroCount === 0) {
+        return `${sign}0.${significant}`;
+      }
+
+      const visibleZeroes = "0";
+      const remainingZeroCount = Math.max(zeroCount - visibleZeroes.length, 0);
+      const subscriptZeroes = remainingZeroCount > 0 ? toSubscriptDigits(remainingZeroCount) : "";
+      return `${sign}0.${visibleZeroes}${subscriptZeroes}${significant}`;
     }
   }
 
@@ -663,7 +694,16 @@ function formatNumber(value, maximumFractionDigits = 0) {
   });
 }
 
-function formatMetricDisplay(value, { maximumFractionDigits = 0, suffix = "" } = {}) {
+function formatMetricDisplay(
+  value,
+  {
+    maximumFractionDigits = 0,
+    suffix = "",
+    tinyThreshold,
+    tinySignificantDigits = 4,
+    tinyFixedDigits,
+  } = {},
+) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
     return {
@@ -673,30 +713,62 @@ function formatMetricDisplay(value, { maximumFractionDigits = 0, suffix = "" } =
     };
   }
 
-  const plainText = `${formatNumber(numericValue, maximumFractionDigits)}${suffix}`;
+  const absValue = Math.abs(numericValue);
+  const millionValue = absValue >= 1_000_000 ? numericValue / 1_000_000 : null;
+  const plainText = millionValue !== null
+    ? `${formatWithTinySubscript(millionValue, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      })} M${suffix}`
+    : `${formatWithTinySubscript(numericValue, {
+        minimumFractionDigits: maximumFractionDigits,
+        maximumFractionDigits,
+        tinyThreshold: tinyThreshold ?? (maximumFractionDigits > 0 ? 1 / (10 ** maximumFractionDigits) : 0),
+        tinySignificantDigits,
+        tinyFixedDigits: tinyFixedDigits ?? Math.max(18, maximumFractionDigits + 8),
+      })}${suffix}`;
   return {
     plainText,
-    markup: plainText,
+    markup: plainText.replace(
+      /([₀₁₂₃₄₅₆₇₈₉]+)/g,
+      (_, digits) => `<span class="metric-inline-subscript">${Array.from(digits).map((digit) => NORMAL_FROM_SUBSCRIPT[digit] || digit).join("")}</span>`,
+    ),
     isTiny: plainText.includes("₀") || plainText.includes("₁") || plainText.includes("₂") || plainText.includes("₃") || plainText.includes("₄") || plainText.includes("₅") || plainText.includes("₆") || plainText.includes("₇") || plainText.includes("₈") || plainText.includes("₉"),
   };
 }
 
 function renderMetricDisplay(node, value, options = {}) {
   const { plainText, markup, isTiny } = formatMetricDisplay(value, options);
-  node.textContent = markup;
+  node.innerHTML = markup;
   node.setAttribute("aria-label", plainText);
   node.setAttribute("title", plainText);
   node.classList.toggle("metric-value-tiny", isTiny);
 }
 
-function animateMetricNumber(node, nextValue, { maximumFractionDigits = 0, suffix = "" } = {}) {
+function animateMetricNumber(
+  node,
+  nextValue,
+  {
+    maximumFractionDigits = 0,
+    suffix = "",
+    tinyThreshold,
+    tinySignificantDigits = 4,
+    tinyFixedDigits,
+  } = {},
+) {
   if (!node || !Number.isFinite(nextValue)) return;
 
   const previous = metricAnimationState.get(node) ?? nextValue;
   const startValue = Number(previous);
   const targetValue = Number(nextValue);
   const metricCard = node.closest(".metric-card");
-  const formatOptions = { maximumFractionDigits, suffix };
+  const formatOptions = {
+    maximumFractionDigits,
+    suffix,
+    tinyThreshold,
+    tinySignificantDigits,
+    tinyFixedDigits,
+  };
 
   if (!Number.isFinite(startValue) || Math.abs(targetValue - startValue) < 0.000001 || prefersReducedMotion) {
     renderMetricDisplay(node, targetValue, formatOptions);
@@ -1718,6 +1790,72 @@ function formatBnbValue(value, maximumFractionDigits = 3) {
   return "<0.₁₁1";
 }
 
+function resolveBaburuPriceUsdt() {
+  if (Number.isFinite(runtimeConfig.mockBaburuPriceUsdt) && runtimeConfig.mockBaburuPriceUsdt > 0) {
+    return runtimeConfig.mockBaburuPriceUsdt;
+  }
+
+  if (
+    Number.isFinite(runtimeConfig.mockBaburuPriceBnb) &&
+    runtimeConfig.mockBaburuPriceBnb > 0 &&
+    Number.isFinite(runtimeConfig.mockBnbPriceUsdt) &&
+    runtimeConfig.mockBnbPriceUsdt > 0
+  ) {
+    return runtimeConfig.mockBaburuPriceBnb * runtimeConfig.mockBnbPriceUsdt;
+  }
+
+  return null;
+}
+
+async function refreshRuntimeConfig() {
+  try {
+    const response = await fetch(LOCAL_MARKET_STATE_URL, { cache: "no-store" });
+    if (!response.ok) return;
+    const marketState = await response.json();
+    if (Number.isFinite(Number(marketState.mockBaburuPriceUsdt))) {
+      runtimeConfig.mockBaburuPriceUsdt = Number(marketState.mockBaburuPriceUsdt);
+    }
+    if (Number.isFinite(Number(marketState.mockBaburuPriceBnb))) {
+      runtimeConfig.mockBaburuPriceBnb = Number(marketState.mockBaburuPriceBnb);
+    }
+    if (Number.isFinite(Number(marketState.mockBnbPriceUsdt))) {
+      runtimeConfig.mockBnbPriceUsdt = Number(marketState.mockBnbPriceUsdt);
+    }
+    if (typeof marketState.nowTs === "string" && marketState.nowTs) {
+      runtimeConfig.nowTs = marketState.nowTs;
+    }
+  } catch {
+    // Keep the last known local price when the dev-only market feed is unavailable.
+  }
+}
+
+function renderPriceMetricFromRuntimeConfig() {
+  if (!priceMetric) return;
+  animateMetricNumber(priceMetric, resolveBaburuPriceUsdt() ?? Number.NaN, {
+    maximumFractionDigits: 8,
+    tinyThreshold: 0.0001,
+    tinySignificantDigits: 4,
+    tinyFixedDigits: 20,
+  });
+}
+
+async function refreshPriceMetricOnly() {
+  await refreshRuntimeConfig();
+  renderPriceMetricFromRuntimeConfig();
+  nextPriceRefreshAt = Date.now() + PRICE_REFRESH_INTERVAL_MS;
+}
+
+function formatUsdtPrice(value) {
+  if (!Number.isFinite(value) || value <= 0) return "TBA";
+  return formatWithTinySubscript(value, {
+    minimumFractionDigits: value >= 1 ? 2 : 0,
+    maximumFractionDigits: value >= 1 ? 2 : 6,
+    tinyThreshold: 0.0001,
+    tinySignificantDigits: 4,
+    tinyFixedDigits: 12,
+  });
+}
+
 function formatBorrowedAt(timestamp) {
   const date = new Date(Number(timestamp) * 1000);
   const locale = currentLang === "zh" ? "zh-CN" : "en-US";
@@ -1875,21 +2013,25 @@ async function loadVaultMetrics() {
     const contracts = getReadContracts();
     if (!contracts) return;
 
-    const [treasurySnapshot, activeLoans, rhoBps, activeCollateral, liquidatableSummary] = await Promise.all([
+    const [treasurySnapshot, activeLoans, rhoBps, activeCollateral, liquidatableSummary, burnedBaburuBalance] = await Promise.all([
       contracts.kinko.treasurySnapshot(),
       contracts.kinko.activeOrderCount(),
       contracts.kinko.rhoBps(),
       contracts.kinko.activeCollateral(),
       contracts.kinko.liquidatableSummary(),
+      contracts.baburu.balanceOf(DEAD_ADDRESS),
     ]);
     const liveBalance = Array.isArray(treasurySnapshot) ? treasurySnapshot[0] : treasurySnapshot.liveBalance;
     const totalManaged = Array.isArray(treasurySnapshot) ? treasurySnapshot[2] : treasurySnapshot.totalManaged;
     const liquidatableCollateral = Array.isArray(liquidatableSummary) ? liquidatableSummary[1] : liquidatableSummary.collateral;
+    const baburuPriceUsdt = resolveBaburuPriceUsdt();
 
     if (reserveMetric) animateMetricNumber(reserveMetric, Number(ethers.formatEther(liveBalance)), { maximumFractionDigits: 2 });
     if (reserveTotalMetric) animateMetricNumber(reserveTotalMetric, Number(ethers.formatEther(totalManaged)), { maximumFractionDigits: 2 });
     if (activeCollateralMetric) animateMetricNumber(activeCollateralMetric, Number(ethers.formatUnits(activeCollateral, 18)), { maximumFractionDigits: 0 });
+    if (burnedBnbMetric) animateMetricNumber(burnedBnbMetric, Number(ethers.formatUnits(burnedBaburuBalance, 18)), { maximumFractionDigits: 0 });
     if (liquidatableCollateralMetric) animateMetricNumber(liquidatableCollateralMetric, Number(ethers.formatUnits(liquidatableCollateral, 18)), { maximumFractionDigits: 0 });
+    renderPriceMetricFromRuntimeConfig();
     if (activeLoansMetric) animateMetricNumber(activeLoansMetric, Number(activeLoans), { maximumFractionDigits: 0 });
     if (singleLoanRatioMetric) animateMetricNumber(singleLoanRatioMetric, Number(rhoBps) / 100, { maximumFractionDigits: 0, suffix: "%" });
   } catch {}
@@ -2450,11 +2592,15 @@ function setupVaultAutoRefresh() {
   }
 
   nextVaultRefreshAt = Date.now() + VAULT_REFRESH_INTERVAL_MS;
+  nextPriceRefreshAt = Date.now() + PRICE_REFRESH_INTERVAL_MS;
   renderBorrowRefreshMeta();
 
   vaultClockTimer = window.setInterval(() => {
     renderBorrowRefreshMeta();
     if (document.visibilityState !== "visible") return;
+    if (Date.now() >= nextPriceRefreshAt) {
+      void refreshPriceMetricOnly();
+    }
     if (Date.now() < nextVaultRefreshAt) return;
     void refreshVaultReadOnlyData();
   }, 250);

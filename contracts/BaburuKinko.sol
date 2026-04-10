@@ -11,8 +11,8 @@ interface IERC20Minimal {
 contract BaburuKinko {
     struct Order {
         address borrower;
-        uint128 collateralAmount;
-        uint128 borrowedBnb;
+        uint256 collateralAmount;
+        uint256 borrowedBnb;
         uint64 borrowedAt;
     }
 
@@ -49,6 +49,7 @@ contract BaburuKinko {
 
     mapping(uint256 => Order) public orders;
     mapping(address => uint256[]) private borrowerOrderIds;
+    mapping(uint256 => uint256) private borrowerOrderIndex;
     uint256[] private activeOrderIds;
     mapping(uint256 => uint256) private activeOrderIndex;
     mapping(address => bool) public isBlacklist;
@@ -86,7 +87,9 @@ contract BaburuKinko {
     error NotRepayable();
     error InvalidMsgValue();
     error TransferFailed();
+    error UnsupportedTokenBehavior();
     error OrderMissing();
+    error DuplicateOrderId();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -125,11 +128,12 @@ contract BaburuKinko {
         orderId = nextOrderId++;
         orders[orderId] = Order({
             borrower: msg.sender,
-            collateralAmount: uint128(collateralAmount),
-            borrowedBnb: uint128(borrowedBnb),
+            collateralAmount: collateralAmount,
+            borrowedBnb: borrowedBnb,
             borrowedAt: uint64(block.timestamp)
         });
         borrowerOrderIds[msg.sender].push(orderId);
+        borrowerOrderIndex[orderId] = borrowerOrderIds[msg.sender].length - 1;
         activeOrderIndex[orderId] = activeOrderIds.length;
         activeOrderIds.push(orderId);
         activeCollateral += collateralAmount;
@@ -145,6 +149,7 @@ contract BaburuKinko {
         uint256 totalBnbDue;
 
         for (uint256 i = 0; i < orderIds.length; i++) {
+            _revertOnDuplicateOrderId(orderIds, i);
             Order memory order = orders[orderIds[i]];
             if (order.borrower == address(0)) revert OrderMissing();
 
@@ -174,6 +179,7 @@ contract BaburuKinko {
 
     function liquidate(uint256[] calldata orderIds) external {
         for (uint256 i = 0; i < orderIds.length; i++) {
+            _revertOnDuplicateOrderId(orderIds, i);
             _liquidate(orderIds[i], msg.sender);
         }
     }
@@ -233,9 +239,9 @@ contract BaburuKinko {
 
     function penaltyBps(uint256 borrowedAt) public view returns (uint256) {
         uint256 elapsed = block.timestamp - borrowedAt;
-        if (elapsed < EARLY_STAGE_ONE) return 9000;
-        if (elapsed < EARLY_STAGE_TWO) return 6000;
-        if (elapsed < EARLY_STAGE_THREE) return 3000;
+        if (elapsed < EARLY_STAGE_ONE) return 6000;
+        if (elapsed < EARLY_STAGE_TWO) return 4000;
+        if (elapsed < EARLY_STAGE_THREE) return 2000;
         if (elapsed < NORMAL_STAGE_END) return 0;
         if (elapsed < GRACE_STAGE_ONE) return 3000;
         if (elapsed < GRACE_STAGE_TWO) return 6000;
@@ -330,6 +336,7 @@ contract BaburuKinko {
         returns (uint256 totalBnbDue, uint256 totalPenalty, uint256 repayableCount, uint256 liquidatableCount)
     {
         for (uint256 i = 0; i < orderIds.length; i++) {
+            _revertOnDuplicateOrderId(orderIds, i);
             Order memory order = orders[orderIds[i]];
             if (order.borrower == address(0)) revert OrderMissing();
 
@@ -348,7 +355,14 @@ contract BaburuKinko {
 
     function blacklistBalance() public view returns (uint256 total) {
         for (uint256 i = 0; i < blacklistAddresses.length; i++) {
-            total += baburuToken.balanceOf(blacklistAddresses[i]);
+            address account = blacklistAddresses[i];
+            if (account == address(this)) {
+                continue;
+            }
+
+            try baburuToken.balanceOf(account) returns (uint256 balance) {
+                total += balance;
+            } catch {}
         }
     }
 
@@ -368,7 +382,7 @@ contract BaburuKinko {
     }
 
     function setBlacklist(address account, bool blacklisted) external onlyOwner {
-        if (account == address(0)) revert InvalidAmount();
+        if (account == address(0) || account == address(this)) revert InvalidAmount();
 
         if (blacklisted && !isBlacklist[account]) {
             isBlacklist[account] = true;
@@ -397,6 +411,7 @@ contract BaburuKinko {
     }
 
     function _closeOrder(uint256 orderId, Order memory order, uint256 penaltyAmount) internal {
+        _removeBorrowerOrder(order.borrower, orderId);
         _removeActiveOrder(orderId);
         activeCollateral -= order.collateralAmount;
         activeOrderCount -= 1;
@@ -417,6 +432,7 @@ contract BaburuKinko {
         if (order.borrower == address(0)) revert OrderMissing();
         if (!_isLiquidatable(order.borrowedAt)) revert NotRepayable();
 
+        _removeBorrowerOrder(order.borrower, orderId);
         _removeActiveOrder(orderId);
         activeCollateral -= order.collateralAmount;
         activeOrderCount -= 1;
@@ -448,13 +464,48 @@ contract BaburuKinko {
         delete activeOrderIndex[orderId];
     }
 
+    function _removeBorrowerOrder(address borrower, uint256 orderId) internal {
+        uint256[] storage borrowerOrders = borrowerOrderIds[borrower];
+        uint256 index = borrowerOrderIndex[orderId];
+        uint256 lastIndex = borrowerOrders.length - 1;
+
+        if (index != lastIndex) {
+            uint256 lastOrderId = borrowerOrders[lastIndex];
+            borrowerOrders[index] = lastOrderId;
+            borrowerOrderIndex[lastOrderId] = index;
+        }
+
+        borrowerOrders.pop();
+        delete borrowerOrderIndex[orderId];
+    }
+
     function _safeTransfer(address to, uint256 value) internal {
+        uint256 senderBalanceBefore = baburuToken.balanceOf(address(this));
+        uint256 receiverBalanceBefore = baburuToken.balanceOf(to);
         bool ok = baburuToken.transfer(to, value);
         if (!ok) revert TransferFailed();
+
+        uint256 senderBalanceAfter = baburuToken.balanceOf(address(this));
+        uint256 receiverBalanceAfter = baburuToken.balanceOf(to);
+        if (
+            senderBalanceBefore < value ||
+            senderBalanceBefore - senderBalanceAfter != value ||
+            receiverBalanceAfter - receiverBalanceBefore != value
+        ) revert UnsupportedTokenBehavior();
     }
 
     function _safeTransferFrom(address from, address to, uint256 value) internal {
+        uint256 receiverBalanceBefore = baburuToken.balanceOf(to);
         bool ok = baburuToken.transferFrom(from, to, value);
         if (!ok) revert TransferFailed();
+
+        uint256 receiverBalanceAfter = baburuToken.balanceOf(to);
+        if (receiverBalanceAfter - receiverBalanceBefore != value) revert UnsupportedTokenBehavior();
+    }
+
+    function _revertOnDuplicateOrderId(uint256[] calldata orderIds, uint256 currentIndex) internal pure {
+        for (uint256 i = 0; i < currentIndex; i++) {
+            if (orderIds[i] == orderIds[currentIndex]) revert DuplicateOrderId();
+        }
     }
 }

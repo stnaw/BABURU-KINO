@@ -62,8 +62,8 @@ const translations = {
     connectWallet: "连接钱包",
     walletUnavailable: "未检测到钱包",
     heroBadge: "BABURU KINKO",
-    heroTitle: "专属于 BABURUSU 的链上金库",
-    heroDescription: "带上你的$BABURU，从 BABURU KINKO 获取专属于你的免息BNB。",
+    heroTitle: "专属于 BABURUSU 的链上无息金库",
+    heroDescription: "持有 $BABURU，无限次免息提取 BNB —— 随时从 BABURU KINKO 提取",
     startEstimate: "免息借出 BNB",
     viewLoans: "查看我的借款",
     loanOpen: "BABURU 金库开启",
@@ -74,7 +74,7 @@ const translations = {
     overviewTitle: "金库状态",
     metricToyReserve: "可用 BNB",
     metricReserveLive: "实时余额",
-    metricReserveTotal: "BNB 总量",
+    metricReserveTotal: "金库 BNB 总量",
     metricActiveCollateral: "BABURU 已质押",
     metricPendingLiquidation: "BABURU 待清算",
     metricExposureNote: "活跃借款数",
@@ -134,7 +134,7 @@ const translations = {
     timelineDayGrace: "6-9 天",
     timelineDayOverdue: "≥ 9 天",
     timelineEarly6030: "提前还款违约金",
-    timelineEarlySteps: "90% → 60% → 30%",
+    timelineEarlySteps: "60% → 40% → 20%",
     timelineNormal: "0% 手续费窗口",
     timelineNormalNote: "最佳还款时间",
     timelineGrace: "延后还款滞纳金",
@@ -154,9 +154,9 @@ const translations = {
     loanEarlyTitle: "提前期",
     loanNormalTitle: "正常期",
     loanPenaltyZero: "0% 手续费",
-    loanPenaltyEarly90: "90% 提前还款违约金",
     loanPenaltyEarly60: "60% 提前还款违约金",
-    loanPenaltyEarly30: "30% 提前还款违约金",
+    loanPenaltyEarly40: "40% 提前还款违约金",
+    loanPenaltyEarly20: "20% 提前还款违约金",
     loan1Stake: "质押 1,200,000 BABURU",
     loan1Borrowed: "借出 0.214 BNB",
     loan1StartTime: "借款时间：2026-04-06 18:26",
@@ -263,8 +263,8 @@ const translations = {
     connectWallet: "Connect Wallet",
     walletUnavailable: "Wallet Not Found",
     heroBadge: "BABURU KINKO",
-    heroTitle: "The on-chain vault built for every BABURUSU",
-    heroDescription: "Bring your $BABURU and get your own interest-free BNB through BABURU KINKO.",
+    heroTitle: "The on-chain interest-free vault for every BABURUSU",
+    heroDescription: "Hold $BABURU and unlock unlimited interest-free BNB withdrawals from BABURU KINKO anytime.",
     startEstimate: "Borrow Interest-Free BNB",
     viewLoans: "View My Loans",
     loanOpen: "BABURU KINKO is open",
@@ -275,7 +275,7 @@ const translations = {
     overviewTitle: "Vault Status",
     metricToyReserve: "Available BNB",
     metricReserveLive: "Live Balance",
-    metricReserveTotal: "Total BNB",
+    metricReserveTotal: "Vault Total BNB",
     metricActiveCollateral: "BABURU Staked",
     metricPendingLiquidation: "BABURU Pending Liquidation",
     metricExposureNote: "Active Loans",
@@ -335,7 +335,7 @@ const translations = {
     timelineDayGrace: "Day 6-9",
     timelineDayOverdue: "9+ Days",
     timelineEarly6030: "Early Repayment Penalty",
-    timelineEarlySteps: "90% → 60% → 30%",
+    timelineEarlySteps: "60% → 40% → 20%",
     timelineNormal: "0% Fee Window",
     timelineNormalNote: "Best time to repay",
     timelineGrace: "Late Repayment Penalty",
@@ -355,9 +355,9 @@ const translations = {
     loanEarlyTitle: "Early Window",
     loanNormalTitle: "Normal Window",
     loanPenaltyZero: "0% Fee",
-    loanPenaltyEarly90: "90% Early Repayment Penalty",
     loanPenaltyEarly60: "60% Early Repayment Penalty",
-    loanPenaltyEarly30: "30% Early Repayment Penalty",
+    loanPenaltyEarly40: "40% Early Repayment Penalty",
+    loanPenaltyEarly20: "20% Early Repayment Penalty",
     loan1Stake: "Stake 1,200,000 BABURU",
     loan1Borrowed: "Borrowed 0.214 BNB",
     loan1StartTime: "Borrowed at: 2026-04-06 18:26",
@@ -1283,10 +1283,10 @@ async function updateBorrowEstimate({ animateOnRefresh = false } = {}) {
     stakeDisplay.textContent = "-- BABURU";
     ratioDisplay.textContent = `${(minRatioBps / 100).toFixed(2)}%`;
     borrowEstimate.textContent = "--";
-    refBorrow.textContent = "-- BNB";
+    if (refBorrow) refBorrow.textContent = "-- BNB";
     minBorrow.textContent = "-- BNB";
     borrowEstimateAnimationState.set(borrowEstimate, null);
-    borrowEstimateAnimationState.set(refBorrow, null);
+    if (refBorrow) borrowEstimateAnimationState.set(refBorrow, null);
     borrowEstimateAnimationState.set(minBorrow, null);
     const walletAvailable = document.getElementById("wallet-available");
     if (walletAvailable) walletAvailable.textContent = "";
@@ -1338,7 +1338,7 @@ async function updateBorrowEstimate({ animateOnRefresh = false } = {}) {
     renderBorrowEstimateDisplay(refBorrow, estimateValue, { suffix: " BNB" });
     renderBorrowEstimateDisplay(minBorrow, protectedValue, { suffix: " BNB" });
     borrowEstimateAnimationState.set(borrowEstimate, estimateValue);
-    borrowEstimateAnimationState.set(refBorrow, estimateValue);
+    if (refBorrow) borrowEstimateAnimationState.set(refBorrow, estimateValue);
     borrowEstimateAnimationState.set(minBorrow, protectedValue);
   }
   await syncBorrowActionLabel();
@@ -1395,9 +1395,9 @@ function getReferenceNow() {
 function getLoanTimingState(startAt) {
   const elapsedDays = (getReferenceNow().getTime() - startAt.getTime()) / (1000 * 60 * 60 * 24);
 
-  if (elapsedDays < 1) return { stage: "early", rate: 0.9, feeKey: "loanPenaltyEarly90", statusKey: "loanEarlyTitle" };
-  if (elapsedDays < 2) return { stage: "early", rate: 0.6, feeKey: "loanPenaltyEarly60", statusKey: "loanEarlyTitle" };
-  if (elapsedDays < 3) return { stage: "early", rate: 0.3, feeKey: "loanPenaltyEarly30", statusKey: "loanEarlyTitle" };
+  if (elapsedDays < 1) return { stage: "early", rate: 0.6, feeKey: "loanPenaltyEarly60", statusKey: "loanEarlyTitle" };
+  if (elapsedDays < 2) return { stage: "early", rate: 0.4, feeKey: "loanPenaltyEarly40", statusKey: "loanEarlyTitle" };
+  if (elapsedDays < 3) return { stage: "early", rate: 0.2, feeKey: "loanPenaltyEarly20", statusKey: "loanEarlyTitle" };
   if (elapsedDays < 6) return { stage: "normal", rate: 0, feeKey: "loanPenaltyZero", statusKey: "loanNormalTitle" };
   if (elapsedDays < 7) return { stage: "grace", rate: 0.3, feeKey: "loanPenaltyLate30", statusKey: "loanGraceTitle" };
   if (elapsedDays < 8) return { stage: "grace", rate: 0.6, feeKey: "loanPenaltyLate60", statusKey: "loanGraceTitle" };
@@ -1558,13 +1558,9 @@ function renderBorrowRefreshMeta() {
   }
 
   const remainingMs = Math.max(0, nextVaultRefreshAt - Date.now());
-  const secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000));
   const progress = 1 - Math.min(1, remainingMs / VAULT_REFRESH_INTERVAL_MS);
   borrowRefreshMeta.style.setProperty("--borrow-refresh-progress", `${progress}`);
-  borrowRefreshCopy.innerHTML =
-    currentLang === "zh"
-      ? `<span class="borrow-refresh-number">${secondsLeft}</span><span class="borrow-refresh-unit">s</span><span>后刷新预估额度</span>`
-      : `<span>Refreshing estimate in</span><span class="borrow-refresh-number">${secondsLeft}</span><span class="borrow-refresh-unit">s</span>`;
+  borrowRefreshCopy.innerHTML = "";
   borrowRefreshMeta.hidden = false;
 }
 
@@ -1600,9 +1596,9 @@ function feeKeyFromStageAndRate(stage, rate) {
   if (stage === "normal") return "loanPenaltyZero";
   if (stage === "pending") return "loanPenaltyBlocked";
   if (stage === "early") {
-    if (rate >= 0.9) return "loanPenaltyEarly90";
     if (rate >= 0.6) return "loanPenaltyEarly60";
-    return "loanPenaltyEarly30";
+    if (rate >= 0.4) return "loanPenaltyEarly40";
+    return "loanPenaltyEarly20";
   }
   if (rate >= 0.9) return "loanPenaltyLate90";
   if (rate >= 0.6) return "loanPenaltyLate60";

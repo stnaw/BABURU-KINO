@@ -321,4 +321,81 @@ borrowedBnb = (collateral * treasury * rhoBps) / denominator / BPS_DENOMINATOR
 
 ---
 
+## 13. 复审摘要（第 5 轮 — 代码更新后全面审计）
+
+**合约版本**：`BaburuKinko.sol` 514 行（较前版 461 行）  
+**新增辅助合约**：`MockNoReturnBaburu.sol`（不返回 bool 的 ERC20 mock，用于测试）
+
+### 13.1 变更清单与修复状态
+
+| 原 ID | 修复手段 | 验证结果 |
+|--------|----------|----------|
+| **A1** | `penaltyBps` 前三档改为 6000/4000/2000 | **已修复** — 逐档与 §4 对照：[0,1)=60%, [1,2)=40%, [2,3)=20%, [3,6)=0%, [6,7)=30%, [7,8)=60%, [8,9)=90%, >=9=100% 全部正确 |
+| **L1/A3** | `Order.collateralAmount` 和 `borrowedBnb` 改为 `uint256` | **已修复** — 不再截断；`activeCollateral` 增减与订单字段统一口径 |
+| **A2/L2** | 新增 `_revertOnDuplicateOrderId` O(n^2) 去重，`repay`/`liquidate`/`previewRepay` 均调用 | **已修复** — 重复 ID 立即 `DuplicateOrderId` revert |
+| **L4** | `liquidate` 也加了 `_revertOnDuplicateOrderId` | **已修复** — 行为与 `repay` 一致 |
+| **A4** | `_safeTransfer`/`_safeTransferFrom` 加余额差校验 + `UnsupportedTokenBehavior` | **已缓解** — 扣费/不返 bool/不足额到账均被拦截 |
+| **L3** | 新增 `borrowerOrderIndex` + `_removeBorrowerOrder` swap-pop | **已修复** — `borrowerOrderIds` 在关单/清算时收缩 |
+| **L6** | `blacklistBalance` 对 `balanceOf` 用 `try/catch` | **已修复** — 单地址 revert 不阻塞 `borrow` |
+| **L7** | `setBlacklist` 拒绝 `address(this)` + `blacklistBalance` 跳过自身 | **已修复** — 双重防护避免分母双减 |
+| A5 | §9 启动流程 vs constructor-only | **未改** — 维持 P2 |
+| A6 | 链上无序 | **未改** — 维持 P3 |
+| L5 | 黑名单重复 add 无事件 | **未改** — 维持 P3 |
+
+### 13.2 新增代码逐项审查
+
+#### `_removeBorrowerOrder`（L467-480）
+
+swap-pop 模式与 `_removeActiveOrder` 一致；`borrowerOrderIndex[orderId]` 默认值 0 仅当从 `_closeOrder`/`_liquidate` 调用时安全（已验证订单存在才进入）。**正确**。
+
+#### `_safeTransfer` 余额差校验（L482-495）
+
+- 5 次外部调用（2 × `balanceOf` before + `transfer` + 2 × `balanceOf` after）。单次关单涉及 2 次 `_safeTransfer`，共 10 次外部调用——gas 开销较原版增大，为安全性合理代价。
+- `to == address(this)` 场景（自转）会因 `senderDiff == 0 != value` 而 `revert UnsupportedTokenBehavior`；但实际调用路径中 `to` 仅为 `DEAD_ADDRESS` 或 `msg.sender`，无自转。**安全**。
+- `senderBalanceBefore < value` 检查为冗余防御（transfer 失败会先 revert），无害。
+
+#### `_safeTransferFrom` 余额差校验（L497-504）
+
+- 仅校验接收方增量 = `value`；不校验发送方减量。对 kinko 会计足够——仅关心自身到账额。若 token 对发送方额外扣费，属发送方/代币层面行为，不影响 kinko 账面一致性。**合理**。
+
+#### `_revertOnDuplicateOrderId`（L506-510）
+
+- O(n^2)，对业务典型批量大小（<50 笔）可接受。极端大批量时 gas 升高但由调用者承担。**正确**。
+
+#### `MockNoReturnBaburu`
+
+- `transfer`/`transferFrom` 无 `returns (bool)`。通过 `IERC20Minimal` 接口调用时 Solidity 0.8 解码空 returndata 会 revert。用于验证 kinko 拒绝非标代币。**测试用途合理**。
+
+### 13.3 新一轮逐函数核查
+
+| 函数 | 核查要点 | 结论 |
+|------|----------|------|
+| `borrow` | `collateralAmount`/`borrowedBnb` 现为 uint256 全程一致；`borrowerOrderIndex` 写入 = push 后 `length-1`；`activeCollateral +=` 与存储一致 | 无新问题 |
+| `repay` 首循环 | `_revertOnDuplicateOrderId` → 超期走 `_liquidate` → 正常走累加 → `msg.value` 校验 | 重复 ID 已拦截；超期清算后 delete → 二循环 `continue` |
+| `repay` 二循环 | `_closeOrder` 内先 `_removeBorrowerOrder` + `_removeActiveOrder` 再 `delete` 再转币 | 状态先清再外调，重入读零 |
+| `liquidate` | `_revertOnDuplicateOrderId` + `_liquidate` | 一致性已修复 |
+| `liquidateOverdue` | 反向遍历 + swap-pop 不变 | 仍正确 |
+| `_closeOrder` | 新增 `_removeBorrowerOrder` 调用 | `borrowerOrderIds` 与 `activeOrderIds` 独立结构，无交叉影响 |
+| `_liquidate` | 同上新增 `_removeBorrowerOrder` | 同上 |
+| `blacklistBalance` | `try/catch` + skip `address(this)` | L6 + L7 双修 |
+| `setBlacklist` | 拒绝 `address(0)` 和 `address(this)` | L7 堵住入口 |
+| `getBorrowerOrders` | 仍做 filter loop（现为冗余防御，`borrowerOrderIds` 已保持干净）| 无 bug；可选优化 |
+
+### 13.4 残留项
+
+| ID | 严重度 | 状态 | 备注 |
+|----|--------|------|------|
+| A5 | P2 | 未改 | §9 启动流程与 constructor-only 差异；建议白皮书/部署文档说明 |
+| A6 | P3 | 未改 | 链上无序，由前端排序满足 |
+| L5 | P3 | 未改 | `setBlacklist(addr, true)` 重复 add 静默无事件 |
+
+### 13.5 结论
+
+**已修复 9 项（A1/A2/A3/A4/L1/L2/L3/L4/L6/L7）**，覆盖全部 P0 和 P1 级问题及大部分 P2。  
+**未发现**更新后代码引入的新漏洞或状态机矛盾。  
+**残留 3 项**均为 P2–P3 文档/运维面，不影响资金安全。  
+**建议**：更新单元测试对齐新罚金档位后即可进入测试网演练阶段。
+
+---
+
 *本报告随合约与 `税率分配.md` 变更需更新。*

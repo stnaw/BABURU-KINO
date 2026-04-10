@@ -257,7 +257,7 @@ html[lang="zh-CN"] .brand h1 {
   font-size: 1.12rem;
 }
 
- .hero h2 {
+.hero h2 {
   font-family: var(--font-brand);
 }
 
@@ -271,10 +271,10 @@ html[lang="zh-CN"] .hero h2 {
     0 4px 14px rgba(255, 215, 214, 0.28);
 }
 
- .section-heading h3,
- .panel-header h4,
- .loan-head h4,
- .faq-list summary {
+.section-heading h3,
+.panel-header h4,
+.loan-head h4,
+.faq-list summary {
   font-family: var(--font-ui);
 }
 
@@ -435,11 +435,11 @@ html[lang="zh-CN"] .faq-list summary {
   opacity: 0.82;
 }
 
-.flow-step + .flow-step {
+.flow-step+.flow-step {
   margin-left: 30px;
 }
 
-.flow-step + .flow-step::before {
+.flow-step+.flow-step::before {
   content: "";
   position: absolute;
   left: -22px;
@@ -759,6 +759,7 @@ html[lang="zh-CN"] .filter-chip {
     opacity: 0;
     transform: translateY(-0.35rem);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -891,15 +892,21 @@ html[lang="zh-CN"] .filter-chip {
 }
 
 .hero-description {
-  font-size: var(--text-lg);
-  max-width: none;
+  font-size: clamp(0.98rem, 1.2vw, 1.08rem);
+  max-width: 100%;
   color: color-mix(in oklch, var(--ink-soft) 88%, white);
-  white-space: nowrap;
+  line-height: 1.46;
+  white-space: normal;
   letter-spacing: -0.01em;
 }
 
 html[lang="zh-CN"] .hero-description {
   font-family: var(--font-ui);
+  max-width: 100%;
+  line-height: 1.56;
+  letter-spacing: 0;
+  word-break: keep-all;
+  line-break: strict;
 }
 
 .hero-marquee {
@@ -1261,6 +1268,7 @@ html[lang="zh-CN"] .hero-description {
     opacity: 0.78;
     transform: translateX(-50%) rotate(-2deg) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) rotate(-1deg) scale(1.02);
@@ -1272,6 +1280,7 @@ html[lang="zh-CN"] .hero-description {
     opacity: 0;
     transform: translateY(-0.38rem) scale(0.985);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1365,8 +1374,7 @@ html[lang="zh-CN"] .hero-description {
   font-family: var(--font-ui);
 }
 
-:is(
-  .brand h1,
+:is(.brand h1,
   .hero-badge,
   .metric-card span,
   .field span,
@@ -1374,8 +1382,7 @@ html[lang="zh-CN"] .hero-description {
   .timeline-badge,
   .status-pill,
   .mobile-dock a,
-  .flow-step-label
-) {
+  .flow-step-label) {
   white-space: nowrap;
 }
 
@@ -1413,8 +1420,7 @@ html[lang="zh-CN"] .hero-description {
   text-overflow: clip;
 }
 
-:is(
-  .hero-description,
+:is(.hero-description,
   .section-note,
   .panel-header h4,
   .estimate-inline h4,
@@ -1426,8 +1432,7 @@ html[lang="zh-CN"] .hero-description {
   .timeline-note,
   .loan-head h4,
   .loan-meta span,
-  .faq-list summary
-) {
+  .faq-list summary) {
   overflow: visible;
   text-overflow: clip;
 }
@@ -1479,12 +1484,12 @@ html[lang="zh-CN"] .hero-description {
   transform: scale(1.02);
 }
 
-.metric-card.is-updating > strong {
+.metric-card.is-updating>strong {
   animation: metric-pulse 760ms var(--ease-out-quint);
 }
 
-.metric-card > strong,
-.metric-card > span {
+.metric-card>strong,
+.metric-card>span {
   position: relative;
   z-index: 1;
 }
@@ -1537,7 +1542,7 @@ html[lang="zh-CN"] .hero-description {
   flex: 0 0 auto;
 }
 
-.metric-card > strong {
+.metric-card>strong {
   align-self: end;
   margin: 0;
   font-size: clamp(2.1rem, 4vw, 3.4rem);
@@ -1549,12 +1554,12 @@ html[lang="zh-CN"] .hero-description {
   white-space: nowrap;
 }
 
-.metric-card > strong.metric-value-tiny {
+.metric-card>strong.metric-value-tiny {
   font-size: clamp(1.68rem, 3.2vw, 2.7rem);
   letter-spacing: -0.03em;
 }
 
-.metric-card > strong sub {
+.metric-card>strong sub {
   font-size: 0.42em;
   line-height: 1;
   vertical-align: -0.18em;
@@ -1675,8 +1680,8 @@ html[lang="zh-CN"] .hero-description {
   align-content: start;
 }
 
-.metric-card-reserve > strong,
-.metric-card-heat > strong {
+.metric-card-reserve>strong,
+.metric-card-heat>strong {
   grid-row: 2;
   align-self: end;
 }
@@ -1985,40 +1990,28 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .borrow-refresh-meta {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(255, 252, 247, 0.8);
-  border: 1px dashed rgba(127, 87, 111, 0.14);
-  color: var(--ink-soft);
-  font-size: 0.84rem;
-  font-weight: 700;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  justify-content: center;
-  gap: 0.42rem;
+  position: absolute;
+  top: 0.12rem;
+  right: 0.12rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
   --borrow-refresh-progress: 0;
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition),
-    border-color var(--transition-fast);
 }
 
 .borrow-refresh-ring {
   position: relative;
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.05rem;
+  height: 1.05rem;
   flex: 0 0 auto;
   border-radius: 50%;
   background:
-    conic-gradient(
-      color-mix(in oklch, var(--mint) 58%, var(--peach)) calc(var(--borrow-refresh-progress) * 1turn),
-      rgba(127, 87, 111, 0.1) 0
-    );
+    conic-gradient(color-mix(in oklch, var(--mint) 58%, var(--peach)) calc(var(--borrow-refresh-progress) * 1turn),
+      rgba(127, 87, 111, 0.1) 0);
   box-shadow:
     inset 0 0 0 1px rgba(127, 87, 111, 0.08),
     0 4px 10px rgba(138, 104, 120, 0.08);
@@ -2029,31 +2022,24 @@ html[lang="zh-CN"] .hero-description {
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: rgba(255, 252, 247, 0.92);
+  background: var(--paper);
 }
 
 .borrow-refresh-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.12rem;
-  white-space: nowrap;
+  display: none;
 }
 
 .borrow-refresh-number {
-  display: inline-block;
-  width: 2ch;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  display: none;
 }
 
 .borrow-refresh-unit {
-  display: inline-block;
-  width: 1ch;
+  display: none;
 }
 
 .borrow-refresh-meta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(149, 113, 130, 0.08);
+  transform: none;
+  box-shadow: none;
 }
 
 .borrow-refresh-meta:hover .borrow-refresh-ring {
@@ -2102,10 +2088,12 @@ html[lang="zh-CN"] .hero-description {
 }
 
 .estimate-head {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  min-height: 1.29rem;
+  padding-right: 1.34rem;
   min-width: 0;
 }
 
@@ -2263,11 +2251,11 @@ input[type="range"] {
   box-shadow: inset 0 0 0 1px rgba(127, 87, 111, 0.08);
 }
 
-.flow-step + .flow-step {
+.flow-step+.flow-step {
   margin-left: 0;
 }
 
-.flow-step + .flow-step::before {
+.flow-step+.flow-step::before {
   display: none;
 }
 
@@ -2481,7 +2469,7 @@ input[type="range"] {
     box-shadow var(--transition-fast);
 }
 
-.loan-select input:checked + span {
+.loan-select input:checked+span {
   background: linear-gradient(135deg, var(--peach), var(--lilac));
   border-color: transparent;
   transform: scale(1.06);
@@ -2531,7 +2519,7 @@ input[type="range"] {
   pointer-events: auto;
 }
 
-.loan-corner-badges > * {
+.loan-corner-badges>* {
   align-self: flex-end;
 }
 
@@ -2824,7 +2812,7 @@ html[lang="zh-CN"] .faq-list summary {
   will-change: opacity, transform;
 }
 
-.repay-bar > div:first-child {
+.repay-bar>div:first-child {
   min-width: 0;
   display: grid;
   gap: 4px;
@@ -2984,6 +2972,7 @@ html[lang="zh-CN"] .faq-list summary {
 }
 
 @media (max-width: 720px) {
+
   #overview,
   #borrow,
   #loans,
@@ -3107,15 +3096,15 @@ html[lang="zh-CN"] .faq-list summary {
   }
 
   .hero-description {
-    max-width: 30ch;
-    font-size: 0.92rem;
-    line-height: 1.58;
+    max-width: 100%;
+    font-size: 0.82rem;
+    line-height: 1.48;
     white-space: normal;
   }
 
   html[lang="zh-CN"] .hero-description {
-    max-width: 24ch;
-    line-height: 1.68;
+    max-width: 100%;
+    line-height: 1.58;
   }
 
   .hero-description,
@@ -3320,7 +3309,7 @@ html[lang="zh-CN"] .faq-list summary {
     gap: 14px;
   }
 
-  .metric-card > strong {
+  .metric-card>strong {
     font-size: 1.6rem;
   }
 
@@ -3431,8 +3420,28 @@ html[lang="zh-CN"] .faq-list summary {
   }
 
   .estimate-head {
-    align-items: flex-start;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 0;
+    padding-right: 0;
+    gap: 0.5rem;
+  }
+
+  .borrow-refresh-meta {
+    position: static;
+    top: auto;
+    right: auto;
+    flex: 0 0 auto;
+    width: 1.12rem;
+    height: 1.12rem;
+    margin-right: 0.6rem;
+    transform: none;
+  }
+
+  .borrow-refresh-ring {
+    width: 1.12rem;
+    height: 1.12rem;
   }
 
   .field {
@@ -3718,10 +3727,12 @@ html[lang="zh-CN"] .faq-list summary {
 }
 
 @keyframes subtle-breath {
+
   0%,
   100% {
     transform: translateY(0) scale(1);
   }
+
   50% {
     transform: translateY(-1px) scale(1.012);
   }
@@ -3732,6 +3743,7 @@ html[lang="zh-CN"] .faq-list summary {
     opacity: 0;
     transform: translateY(-4px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -3743,10 +3755,12 @@ html[lang="zh-CN"] .faq-list summary {
     transform: translateY(0) scale(1);
     filter: saturate(1);
   }
+
   45% {
     transform: translateY(-0.5px) scale(1.008);
     filter: saturate(1.03);
   }
+
   100% {
     transform: translateY(0) scale(1);
     filter: saturate(1);
